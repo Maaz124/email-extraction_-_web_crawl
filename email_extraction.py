@@ -46,12 +46,13 @@ def get_emails_for_company(domain, max_people=5):
             full_data = match_res.json().get("person", {})
             email = full_data.get("email")
             
-            extracted_data.append({
-                "company": domain,
-                "title": full_data.get("title"),
-                "name": f"{full_data.get('first_name')} {full_data.get('last_name')}",
-                "email": email
-            })
+            if email and email.strip():
+                extracted_data.append({
+                    "company": domain,
+                    "title": full_data.get("title"),
+                    "name": f"{full_data.get('first_name')} {full_data.get('last_name')}",
+                    "email": email
+                })
         
         # Rate limit safety: sleep 1 second between match requests
         time.sleep(1)
@@ -88,6 +89,16 @@ if __name__ == "__main__":
         contacts = get_emails_for_company(domain, max_people=3) # Adjust max_people as needed
         all_contacts.extend(contacts)
     
+    # Fallback to test pipeline manually if Apollo comes up entirely empty
+    if not all_contacts:
+        print("\n[TEST MODE] Apollo returned 0 valid emails. Injecting Maaz Ahmad for pipeline testing...")
+        all_contacts.append({
+            "company": domains[0] if domains else "digitalytics.ai",
+            "title": "CEO",
+            "name": "Maaz Ahmad",
+            "email": "maaz.ahmad1862@gmail.com"
+        })
+        
     print(f"\n--- SAVING TO {output_csv} ---")
     
     with open(output_csv, mode="w", newline="", encoding="utf-8") as file:

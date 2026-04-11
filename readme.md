@@ -15,3 +15,5 @@ python run_pipeline.py companies_1.csv
 ## Outputs
 - `emails_output.csv` (Contacts)
 - `crawled_output.csv` (Scraped website text)
+
+run build token to gen a token 

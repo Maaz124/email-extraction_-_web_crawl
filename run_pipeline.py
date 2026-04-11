@@ -53,9 +53,14 @@ def main():
     print(f"\n--- Running Crawler ---")
     subprocess.run([sys.executable, "crawler.py", temp_domains_file, crawler_csv])
     
-    print(f"\nPipeline finished!")
-    print(f"Emails saved to {emails_csv}")
-    print(f"Crawler data saved to {crawler_csv}")
+    # 4. Generate and Send Emails
+    print(f"\n--- Generating & Sending Emails ---")
+    subprocess.run([sys.executable, "email-sender.py"])
+    
+    print(f"\nPipeline finished successfully!")
+    print(f"Extracted emails stored in {emails_csv}")
+    print(f"Scraped data stored in {crawler_csv}")
+    print(f"Personalized automated emails have been dispatched!")
 
 if __name__ == "__main__":
     main()
