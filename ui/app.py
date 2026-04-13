@@ -17,6 +17,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import csv
 import time
+import queue
+import threading
 import urllib.parse
 import concurrent.futures
 import logging
@@ -520,26 +522,74 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
 
             crawled: dict[str, str] = {}
             try:
-                for i, domain in enumerate(active_domains):
+                # Capture crawl4ai's stdout in real time via a queue
+                _crawl_q: queue.Queue = queue.Queue()
+                _crawl_result: dict   = {}
+                _crawl_exc            = [None]
+
+                class _StdoutToQueue:
+                    """Redirect sys.stdout writes into the queue."""
+                    def __init__(self, q, orig): self.q = q; self.orig = orig; self._buf = ""
+                    def write(self, text):
+                        self.orig.write(text)       # keep terminal output too
+                        self._buf += text
+                        while "\n" in self._buf:
+                            line, self._buf = self._buf.split("\n", 1)
+                            if line.strip():
+                                self.q.put(line)
+                    def flush(self): self.orig.flush()
+                    def isatty(self): return False
+
+                def _crawl_worker():
+                    import sys as _sys
+                    orig = _sys.stdout
+                    _sys.stdout = _StdoutToQueue(_crawl_q, orig)
+                    try:
+                        _crawl_result.update(crawl_domains(active_domains))
+                    except Exception as e:
+                        _crawl_exc[0] = e
+                    finally:
+                        _sys.stdout = orig
+                        _crawl_q.put(None)          # sentinel: crawl finished
+
+                t = threading.Thread(target=_crawl_worker, daemon=True)
+                t.start()
+
+                # Drain the queue and push each line to the live log
+                step_i = 0
+                while True:
+                    try:
+                        line = _crawl_q.get(timeout=0.3)
+                    except queue.Empty:
+                        continue
+                    if line is None:                # sentinel received
+                        break
+                    # Colour-code the crawl4ai status lines
+                    lvl = "success" if "✓" in line or "COMPLETE" in line else \
+                          "warning" if "✗" in line or "ERROR" in line else "info"
+                    _live(f"   {line}", lvl)
+                    # Advance progress bar while crawling
+                    step_i = min(step_i + 1, total_domains * 4)
                     progress_bar.progress(
-                        STAGE1 + STAGE2 * (i / total_domains),
-                        text=f"Stage 2/3 — Crawling {domain} ({i+1}/{total_domains})",
+                        min(STAGE1 + STAGE2 * (step_i / max(total_domains * 4, 1)), STAGE1 + STAGE2 - 0.01),
+                        text=f"Stage 2/3 — crawling…",
                     )
 
-                # Run in a thread to avoid conflicts with Streamlit's event loop
-                def _run_crawl(domains):
-                    return crawl_domains(domains)
+                t.join()
 
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _ex:
-                    crawled = _ex.submit(_run_crawl, active_domains).result()
-                st.session_state.crawled = crawled
-                rows = [{"domain": d, "scraped_content": c} for d, c in crawled.items()]
+                if _crawl_exc[0] is not None:
+                    raise _crawl_exc[0]
+
+                crawled = dict(_crawl_result)
+                st.session_state.crawled.update(crawled)
+                rows = [{"domain": d, "scraped_content": c}
+                        for d, c in st.session_state.crawled.items()]
                 save_csv(_root("crawled_output.csv"), rows, ["domain", "scraped_content"])
 
                 for domain, content in crawled.items():
                     words  = len(content.split())
                     status = "warning" if content.startswith("Failed") else "success"
-                    _live(f"   ✓ {domain}: {words} words scraped", status)
+                    _live(f"   ✓ {domain}: {words:,} words scraped", status)
                 _live(f"✅ Stage 2 complete — {len(crawled)} site(s) crawled", "success")
 
             except Exception as exc:
