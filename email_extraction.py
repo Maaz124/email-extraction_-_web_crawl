@@ -91,12 +91,12 @@ if __name__ == "__main__":
     
     # Fallback to test pipeline manually if Apollo comes up entirely empty
     if not all_contacts:
-        print("\n[TEST MODE] Apollo returned 0 valid emails. Injecting Maaz Ahmad for pipeline testing...")
+        print("\n[TEST MODE] Apollo returned 0 valid emails. Injecting Ahmad Ahsan for pipeline testing...")
         all_contacts.append({
             "company": domains[0] if domains else "digitalytics.ai",
             "title": "CEO",
-            "name": "Maaz Ahmad",
-            "email": "maaz.ahmad1862@gmail.com"
+            "name": "Ahmad Ahsan",
+            "email": "ahmadahsan1997@gmail.com"
         })
         
     print(f"\n--- SAVING TO {output_csv} ---")
