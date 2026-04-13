@@ -353,20 +353,53 @@ with st.expander("**Step 3 — Crawl Company Websites**", expanded=(st.session_s
     if not st.session_state.domains:
         st.warning("Complete Step 1 first.")
     else:
+        total_domains = len(st.session_state.domains)
+
+        # ── Limit controls ────────────────────────────────────────────────────
+        crawl_limit = st.slider(
+            "Max domains to crawl",
+            min_value=1, max_value=total_domains,
+            value=min(5, total_domains),
+            key="crawl_limit",
+            help="Crawling is slow — keep this small to avoid long waits.",
+        )
+
+        domains_to_crawl = st.multiselect(
+            f"Choose which domains to crawl (showing first {crawl_limit})",
+            options=st.session_state.domains,
+            default=st.session_state.domains[:crawl_limit],
+            key="sel_crawl_domains",
+        )
+
+        # Enforce the slider cap on the multiselect
+        if len(domains_to_crawl) > crawl_limit:
+            st.warning(f"You selected {len(domains_to_crawl)} domains but the limit is {crawl_limit}. "
+                       "Only the first ← will be crawled.")
+            domains_to_crawl = domains_to_crawl[:crawl_limit]
+
+        st.markdown(
+            f"<div class='chip chip-info'>🕷 Will crawl {len(domains_to_crawl)} / {total_domains} domains</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ── Action buttons ────────────────────────────────────────────────────
         col_run, col_load = st.columns(2)
         with col_run:
-            if st.button("▶ Run Crawler", key="btn_crawl"):
+            if st.button("▶ Run Crawler", key="btn_crawl", disabled=len(domains_to_crawl) == 0):
                 from pipeline.crawler import crawl_domains
-                with st.spinner("Crawling… this may take a while"):
-                    log("Starting web crawl…")
+                with st.spinner(f"Crawling {len(domains_to_crawl)} site(s)… please wait"):
+                    log(f"Starting crawl for {len(domains_to_crawl)} domains…")
                     try:
-                        crawled = crawl_domains(st.session_state.domains)
-                        st.session_state.crawled = crawled
-                        rows = [{"domain": d, "scraped_content": c} for d, c in crawled.items()]
+                        crawled = crawl_domains(domains_to_crawl)
+                        # Merge into any existing crawled data (don't wipe other domains)
+                        st.session_state.crawled.update(crawled)
+                        rows = [{"domain": d, "scraped_content": c}
+                                for d, c in st.session_state.crawled.items()]
                         save_csv(_root("crawled_output.csv"), rows, ["domain", "scraped_content"])
-                        log(f"Crawled {len(crawled)} sites", "success")
+                        log(f"Crawled {len(crawled)} site(s)", "success")
                         st.session_state.step = max(st.session_state.step, 4)
-                        st.success(f"✅ {len(crawled)} sites crawled")
+                        st.success(f"✅ {len(crawled)} site(s) crawled")
                     except Exception as e:
                         log(f"Crawl error: {e}", "warning")
                         st.error(str(e))
@@ -380,10 +413,38 @@ with st.expander("**Step 3 — Crawl Company Websites**", expanded=(st.session_s
                     st.session_state.step = max(st.session_state.step, 4)
 
         if st.session_state.crawled:
-            preview_domain = st.selectbox("Preview domain", list(st.session_state.crawled.keys()),
-                                          key="sel_preview")
-            snippet = st.session_state.crawled[preview_domain][:800]
-            st.markdown(f"<div class='email-preview'>{snippet}…</div>", unsafe_allow_html=True)
+            st.markdown("---")
+            preview_domain = st.selectbox(
+                "Preview crawled content for domain",
+                list(st.session_state.crawled.keys()),
+                key="sel_preview",
+            )
+            full_text = st.session_state.crawled[preview_domain]
+            char_count = len(full_text)
+            word_count = len(full_text.split())
+            st.markdown(
+                f"<span style='color:#64748b;font-size:12px;'>"
+                f"📄 {word_count:,} words · {char_count:,} characters</span>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"""<div style="
+                    background: #0a0a14;
+                    border: 1px solid rgba(99,102,241,0.2);
+                    border-radius: 12px;
+                    padding: 20px 24px;
+                    height: 420px;
+                    overflow-y: auto;
+                    font-family: 'Courier New', monospace;
+                    font-size: 13px;
+                    line-height: 1.75;
+                    color: #94a3b8;
+                    white-space: pre-wrap;
+                    word-break: break-word;
+                    margin-top: 8px;
+                ">{full_text}</div>""",
+                unsafe_allow_html=True,
+            )
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # STEP 4 — Generate Emails
@@ -415,7 +476,7 @@ with st.expander("**Step 4 — Generate Personalized Emails**", expanded=(st.ses
                     try:
                         body    = generate_email(name=name, email=email, title=title,
                                                  content=context, company_name=company)
-                        subject = generate_subject(company)
+                        subject = generate_subject(body, name, company)
                         st.session_state.generated_emails[email] = {
                             "subject": subject, "body": body, "approved": False,
                             "name": name, "title": title, "company": company, "real_email": email,
@@ -448,7 +509,7 @@ with st.expander("**Step 4 — Generate Personalized Emails**", expanded=(st.ses
                     try:
                         body    = generate_email(name=name, email=email, title=title,
                                                  content=context, company_name=company)
-                        subject = generate_subject(company)
+                        subject = generate_subject(body, name, company)
                         st.session_state.generated_emails[email] = {
                             "subject": subject, "body": body, "approved": False,
                             "name": name, "title": title, "company": company, "real_email": email,

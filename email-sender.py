@@ -19,6 +19,7 @@ _spec = importlib.util.spec_from_file_location(
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
 generate_email = _mod.generate_email
+generate_subject = _mod.generate_subject
 
 # Only send emails — no reading/deleting
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
@@ -115,8 +116,10 @@ if __name__ == "__main__":
                         company_name=company_domain,
                     )
                     
-                    # Send email
-                    subject = f"AI / ML Synergies for {company_domain.capitalize()}"
+                    # AI-generate a specific subject line
+                    print(f"Generating subject line for {name}...")
+                    subject = generate_subject(body, name, company_domain)
+                    print(f"Subject: {subject}")
                     send_email(service, to=email, subject=subject, body=body)
                 except Exception as e:
                     print(f"Failed to generate/send email for {email}: {e}")
