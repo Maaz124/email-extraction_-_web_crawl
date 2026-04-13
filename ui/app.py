@@ -9,6 +9,7 @@ Run from the PROJECT ROOT:
 import sys
 import os
 from pathlib import Path
+from collections import Counter
 
 # ── Make the project root importable so `pipeline` package resolves ──────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -17,7 +18,11 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import csv
 import time
 import urllib.parse
+import concurrent.futures
+import logging
+import traceback
 from io import StringIO
+from datetime import datetime
 
 import streamlit as st
 
@@ -104,7 +109,7 @@ section[data-testid="stSidebar"] {
     background:#0a0a14; border:1px solid rgba(99,102,241,0.15);
     border-radius:10px; padding:16px 20px;
     font-family:'Courier New',monospace; font-size:12px; color:#64748b;
-    max-height:240px; overflow-y:auto;
+    max-height:320px; overflow-y:auto;
 }
 .log-box .ok   { color:#34d399; }
 .log-box .warn { color:#fbbf24; }
@@ -116,11 +121,33 @@ hr { border-color:rgba(99,102,241,0.15) !important; }
 """, unsafe_allow_html=True)
 
 # ─── Constants ────────────────────────────────────────────────────────────────
-TEST_EMAIL = "maaz.ahmad1862@gmail.com"
-DATA_DIR   = PROJECT_ROOT / "data"
+TEST_EMAIL       = "maaz.ahmad1862@gmail.com"
+DATA_DIR         = PROJECT_ROOT / "data"
+EMAILED_LOG_PATH = PROJECT_ROOT / "data" / "emailed_log.csv"
+LOGS_DIR         = PROJECT_ROOT / "logs"
 
 def _root(filename: str) -> str:
     return str(PROJECT_ROOT / filename)
+
+# ─── File Logger Setup ────────────────────────────────────────────────────────
+LOGS_DIR.mkdir(exist_ok=True)
+_log_file = LOGS_DIR / "pipeline.log"
+
+_file_logger = logging.getLogger("pipeline_ui")
+if not _file_logger.handlers:                       # avoid duplicate handlers on Streamlit reruns
+    _fh = logging.FileHandler(_log_file, encoding="utf-8")
+    _fh.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s",
+                                       datefmt="%Y-%m-%d %H:%M:%S"))
+    _file_logger.addHandler(_fh)
+    _file_logger.setLevel(logging.DEBUG)
+    _file_logger.propagate = False
+
+# Write a session-start separator once per process (not on every Streamlit rerun)
+if not getattr(_file_logger, "_session_started", False):
+    _file_logger.info("=" * 70)
+    _file_logger.info(f"SESSION START  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    _file_logger.info("=" * 70)
+    _file_logger._session_started = True
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 def load_csv(filepath: str) -> list[dict]:
@@ -139,15 +166,51 @@ def save_csv(filepath: str, rows: list[dict], fieldnames: list[str]) -> None:
 def log(msg: str, level: str = "info") -> None:
     ts = time.strftime("%H:%M:%S")
     st.session_state.logs.append((ts, level, msg))
+    # Mirror every message to the persistent log file
+    _lvl_map = {"success": logging.INFO, "warning": logging.WARNING, "error": logging.ERROR}
+    _file_logger.log(_lvl_map.get(level, logging.INFO), msg)
+
+def log_exc(msg: str, exc: Exception) -> None:
+    """Log a message + full traceback to file; also add short entry to sidebar log."""
+    log(f"{msg}: {exc or type(exc).__name__}", "warning")
+    _file_logger.error("%s\n%s", msg, traceback.format_exc())
+
+# ─── Emailed-log helpers (Feature 2) ─────────────────────────────────────────
+def load_emailed_log() -> set:
+    """Return the set of domains already emailed (from emailed_log.csv)."""
+    if not EMAILED_LOG_PATH.exists():
+        return set()
+    try:
+        with open(EMAILED_LOG_PATH, "r", encoding="utf-8") as f:
+            return {row["domain"] for row in csv.DictReader(f) if row.get("domain")}
+    except Exception:
+        return set()
+
+def mark_domain_emailed(domain: str) -> None:
+    """Append domain + timestamp to emailed_log.csv (creates file if needed)."""
+    if not domain:
+        return
+    DATA_DIR.mkdir(exist_ok=True)
+    file_exists = EMAILED_LOG_PATH.exists()
+    with open(EMAILED_LOG_PATH, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["domain", "emailed_at"])
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow({"domain": domain, "emailed_at": time.strftime("%Y-%m-%d %H:%M:%S")})
 
 # ─── Session State ────────────────────────────────────────────────────────────
+_emailed_on_startup = load_emailed_log()
+
 for key, default in {
-    "domains":          [],
-    "contacts":         [],
-    "crawled":          {},
-    "generated_emails": {},   # real_email -> {subject, body, approved, name, title, company}
-    "logs":             [],
-    "step":             1,
+    "domains":            [],
+    "active_domains":     [],        # Feature 1: after limit + skip-emailed filter
+    "emailed_domains":    _emailed_on_startup,  # Feature 2: already-emailed set
+    "emails_per_company": 3,         # Feature 5: contacts to fetch per domain
+    "contacts":           [],
+    "crawled":            {},
+    "generated_emails":   {},        # real_email -> {subject, body, approved, name, title, company}
+    "logs":               [],
+    "step":               1,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -155,15 +218,13 @@ for key, default in {
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## ✉️ Cold Outreach")
-    st.markdown("**Digitalytics AI** · Semi-Automated Pipeline")
+    st.markdown("**Digitalytics AI** · Automated Pipeline")
     st.markdown("---")
 
     for num, label in [
-        (1, "Upload Companies"),
-        (2, "Extract Contacts"),
-        (3, "Crawl Websites"),
-        (4, "Generate Emails"),
-        (5, "Review & Send"),
+        (1, "Configure & Upload"),
+        (2, "Run Pipeline"),
+        (3, "Review & Send"),
     ]:
         active = st.session_state.step == num
         color  = "#6366f1" if active else "#334155"
@@ -201,7 +262,7 @@ st.markdown("""
     Cold Outreach Pipeline
   </h1>
   <p style="color:#64748b;margin-top:6px;font-size:15px;">
-    Upload · Extract · Crawl · Generate · Send — all in one place
+    Configure · Run · Review · Send — fully automated
   </p>
 </div>
 """, unsafe_allow_html=True)
@@ -210,10 +271,10 @@ st.markdown("""
 c1, c2, c3, c4 = st.columns(4)
 approved_count = sum(1 for v in st.session_state.generated_emails.values() if v.get("approved"))
 for col, num, label in [
-    (c1, len(st.session_state.domains),          "Domains"),
-    (c2, len(st.session_state.contacts),         "Contacts"),
-    (c3, len(st.session_state.crawled),          "Crawled Sites"),
-    (c4, approved_count,                          "Approved Emails"),
+    (c1, len(st.session_state.active_domains),   "Active Domains"),
+    (c2, len(st.session_state.contacts),          "Contacts"),
+    (c3, len(st.session_state.crawled),           "Crawled Sites"),
+    (c4, approved_count,                           "Approved Emails"),
 ]:
     col.markdown(
         f"<div class='metric-box'><div class='metric-num'>{num}</div>"
@@ -224,7 +285,7 @@ for col, num, label in [
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# STEP 1 — Upload / Enter Domains
+# STEP 1 — Configure & Upload
 # ═══════════════════════════════════════════════════════════════════════════════
 def _parse_domain(website: str) -> str | None:
     parsed = urllib.parse.urlparse(website)
@@ -235,16 +296,17 @@ def _parse_domain(website: str) -> str | None:
 
 def _set_domains(raw: list[str]) -> None:
     st.session_state.domains = list(dict.fromkeys(raw))
+    DATA_DIR.mkdir(exist_ok=True)
     save_csv(
-        _root("temp_domains.csv"),
+        str(DATA_DIR / "temp_domains.csv"),
         [{"domain": d} for d in st.session_state.domains],
         ["domain"],
     )
     log(f"Loaded {len(st.session_state.domains)} domains", "success")
-    st.session_state.step = max(st.session_state.step, 2)
+    st.session_state.step = max(st.session_state.step, 1)
 
-with st.expander("**Step 1 — Upload Companies CSV**", expanded=(st.session_state.step == 1)):
-    st.markdown("<div class='step-title'><span class='step-badge'>1</span>Choose your companies list</div>",
+with st.expander("**Step 1 — Configure & Upload Companies**", expanded=(st.session_state.step == 1)):
+    st.markdown("<div class='step-title'><span class='step-badge'>1</span>Choose companies and configure pipeline settings</div>",
                 unsafe_allow_html=True)
 
     tab_up, tab_file, tab_manual = st.tabs(["📁 Upload CSV", "📂 Existing File", "✏️ Manual Entry"])
@@ -256,13 +318,13 @@ with st.expander("**Step 1 — Upload Companies CSV**", expanded=(st.session_sta
             content = uploaded.read().decode("utf-8")
             domains = [
                 d for row in csv.DictReader(StringIO(content))
-                if (d := _parse_domain(row.get("Website", "").strip()))
+                if (d := _parse_domain((row.get("Website") or row.get("domain") or "").strip()))
             ]
             if domains:
                 _set_domains(domains)
                 st.success(f"✅ {len(st.session_state.domains)} domains loaded")
             else:
-                st.error("No domains found — check the 'Website' column.")
+                st.error("No domains found — check the 'Website' or 'domain' column.")
 
     # ── Tab 2: Existing file ───────────────────────────────────────────────────
     with tab_file:
@@ -275,7 +337,9 @@ with st.expander("**Step 1 — Upload Companies CSV**", expanded=(st.session_sta
                 domains = []
                 with open(filepath, encoding="utf-8-sig") as f:
                     for row in csv.DictReader(f):
-                        d = _parse_domain(row.get("Website", "").strip())
+                        # Accept both "Website" (user CSVs) and "domain" (temp_domains.csv)
+                        raw = row.get("Website") or row.get("domain") or ""
+                        d = _parse_domain(raw.strip())
                         if d:
                             domains.append(d)
                 if domains:
@@ -298,233 +362,260 @@ with st.expander("**Step 1 — Upload Companies CSV**", expanded=(st.session_sta
             else:
                 st.error("No domains entered.")
 
+    # ── Settings (shown once domains are loaded) ───────────────────────────────
     if st.session_state.domains:
-        preview = " · ".join(f"`{d}`" for d in st.session_state.domains[:10])
-        extra   = "…" if len(st.session_state.domains) > 10 else ""
-        st.markdown(f"**Domains ({len(st.session_state.domains)}):** {preview}{extra}")
+        st.markdown("---")
+        st.markdown("#### ⚙️ Pipeline Settings")
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# STEP 2 — Extract Contacts
-# ═══════════════════════════════════════════════════════════════════════════════
-with st.expander("**Step 2 — Extract Contacts via Apollo**", expanded=(st.session_state.step == 2)):
-    st.markdown("<div class='step-title'><span class='step-badge'>2</span>Pull contacts for each domain</div>",
-                unsafe_allow_html=True)
+        col_s1, col_s2 = st.columns(2)
 
-    if not st.session_state.domains:
-        st.warning("Complete Step 1 first.")
-    else:
-        max_people = st.slider("Max contacts per domain", 1, 10, 3, key="max_people")
+        with col_s1:
+            # Feature 5: emails per company
+            epc = st.number_input(
+                "Emails to fetch per company (Apollo)",
+                min_value=1,
+                max_value=20,
+                value=st.session_state.emails_per_company,
+                step=1,
+                help="How many contacts Apollo will return per domain.",
+                key="epc_input",
+            )
+            st.session_state.emails_per_company = epc
 
-        col_run, col_load = st.columns(2)
-        with col_run:
-            if st.button("▶ Run Extraction", key="btn_extract"):
-                from pipeline.email_extraction import extract_contacts
-                with st.spinner("Querying Apollo…"):
-                    log("Starting Apollo extraction…")
-                    try:
-                        contacts = extract_contacts(st.session_state.domains, max_people=max_people)
-                        st.session_state.contacts = contacts
-                        save_csv(_root("emails_output.csv"), contacts,
-                                 ["company", "title", "name", "email"])
-                        log(f"Extracted {len(contacts)} contacts", "success")
-                        st.session_state.step = max(st.session_state.step, 3)
-                        st.success(f"✅ {len(contacts)} contacts extracted")
-                    except Exception as e:
-                        log(f"Extraction error: {e}", "warning")
-                        st.error(str(e))
+        with col_s2:
+            # Feature 1: limit N companies
+            limit_val = st.number_input(
+                "Limit to first N companies (0 = all)",
+                min_value=0,
+                value=0,
+                step=1,
+                help="Set to 0 to process every domain.",
+                key="domain_limit_input",
+            )
 
-        with col_load:
-            if os.path.exists(_root("emails_output.csv")):
-                if st.button("Load existing emails_output.csv", key="btn_load_contacts"):
-                    st.session_state.contacts = load_csv(_root("emails_output.csv"))
-                    log(f"Loaded {len(st.session_state.contacts)} existing contacts", "success")
-                    st.session_state.step = max(st.session_state.step, 3)
-
-        if st.session_state.contacts:
-            st.dataframe(st.session_state.contacts, use_container_width=True)
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# STEP 3 — Crawl Websites
-# ═══════════════════════════════════════════════════════════════════════════════
-with st.expander("**Step 3 — Crawl Company Websites**", expanded=(st.session_state.step == 3)):
-    st.markdown("<div class='step-title'><span class='step-badge'>3</span>Scrape site content for AI context</div>",
-                unsafe_allow_html=True)
-
-    if not st.session_state.domains:
-        st.warning("Complete Step 1 first.")
-    else:
-        total_domains = len(st.session_state.domains)
-
-        # ── Limit controls ────────────────────────────────────────────────────
-        crawl_limit = st.slider(
-            "Max domains to crawl",
-            min_value=1, max_value=total_domains,
-            value=min(5, total_domains),
-            key="crawl_limit",
-            help="Crawling is slow — keep this small to avoid long waits.",
+        # Build active_domains: apply limit then skip already-emailed
+        candidate_domains = (
+            st.session_state.domains[:limit_val]
+            if limit_val > 0
+            else list(st.session_state.domains)
         )
+        active = [d for d in candidate_domains if d not in st.session_state.emailed_domains]
+        st.session_state.active_domains = active
 
-        domains_to_crawl = st.multiselect(
-            f"Choose which domains to crawl (showing first {crawl_limit})",
-            options=st.session_state.domains,
-            default=st.session_state.domains[:crawl_limit],
-            key="sel_crawl_domains",
-        )
+        # Feature 2: warn about already-emailed domains
+        already_count = len(candidate_domains) - len(active)
+        if already_count > 0:
+            st.warning(
+                f"⚠️ {already_count} of {len(candidate_domains)} selected domain(s) already "
+                f"emailed — they will be skipped automatically."
+            )
 
-        # Enforce the slider cap on the multiselect
-        if len(domains_to_crawl) > crawl_limit:
-            st.warning(f"You selected {len(domains_to_crawl)} domains but the limit is {crawl_limit}. "
-                       "Only the first ← will be crawled.")
-            domains_to_crawl = domains_to_crawl[:crawl_limit]
+        # Summary
+        limit_label = f"first {limit_val}" if limit_val > 0 else "all"
+        skip_label  = f", {already_count} skipped (already emailed)" if already_count else ""
+        st.info(f"**{len(active)}** domain(s) will be processed ({limit_label} selected{skip_label}).")
+
+        # Domain preview
+        preview = " · ".join(f"`{d}`" for d in active[:10])
+        extra   = "…" if len(active) > 10 else ""
+        if active:
+            st.markdown(f"**Active domains ({len(active)}):** {preview}{extra}")
+
+        if st.button("Confirm & Continue →", key="btn_confirm_step1"):
+            st.session_state.step = max(st.session_state.step, 2)
+            log(f"Confirmed {len(active)} active domains", "success")
+            st.success("✅ Settings confirmed. Proceed to Run Pipeline.")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STEP 2 — Run Pipeline (Extract → Crawl → Generate)
+# ═══════════════════════════════════════════════════════════════════════════════
+with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step == 2)):
+    st.markdown(
+        "<div class='step-title'><span class='step-badge'>2</span>"
+        "Extract contacts · Crawl websites · Generate emails</div>",
+        unsafe_allow_html=True,
+    )
+
+    if not st.session_state.active_domains:
+        st.warning("Complete Step 1 and confirm your settings first.")
+    else:
+        active_domains    = st.session_state.active_domains
+        emails_per_co     = st.session_state.emails_per_company
 
         st.markdown(
-            f"<div class='chip chip-info'>🕷 Will crawl {len(domains_to_crawl)} / {total_domains} domains</div>",
-            unsafe_allow_html=True,
+            f"Ready to process **{len(active_domains)}** domain(s), "
+            f"**{emails_per_co}** contact(s) per company."
         )
-        st.markdown("<br>", unsafe_allow_html=True)
 
-        # ── Action buttons ────────────────────────────────────────────────────
-        col_run, col_load = st.columns(2)
-        with col_run:
-            if st.button("▶ Run Crawler", key="btn_crawl", disabled=len(domains_to_crawl) == 0):
-                from pipeline.crawler import crawl_domains
-                with st.spinner(f"Crawling {len(domains_to_crawl)} site(s)… please wait"):
-                    log(f"Starting crawl for {len(domains_to_crawl)} domains…")
-                    try:
-                        crawled = crawl_domains(domains_to_crawl)
-                        # Merge into any existing crawled data (don't wipe other domains)
-                        st.session_state.crawled.update(crawled)
-                        rows = [{"domain": d, "scraped_content": c}
-                                for d, c in st.session_state.crawled.items()]
-                        save_csv(_root("crawled_output.csv"), rows, ["domain", "scraped_content"])
-                        log(f"Crawled {len(crawled)} site(s)", "success")
-                        st.session_state.step = max(st.session_state.step, 4)
-                        st.success(f"✅ {len(crawled)} site(s) crawled")
-                    except Exception as e:
-                        log(f"Crawl error: {e}", "warning")
-                        st.error(str(e))
+        run_btn = st.button("▶ Run Full Pipeline", key="btn_run_pipeline")
 
-        with col_load:
-            if os.path.exists(_root("crawled_output.csv")):
-                if st.button("Load existing crawled_output.csv", key="btn_load_crawl"):
-                    rows = load_csv(_root("crawled_output.csv"))
-                    st.session_state.crawled = {r["domain"]: r.get("scraped_content", "") for r in rows}
-                    log(f"Loaded {len(st.session_state.crawled)} crawled sites", "success")
-                    st.session_state.step = max(st.session_state.step, 4)
+        # ── Live progress & log placeholders ──────────────────────────────────
+        progress_bar = st.progress(0, text="Waiting to start…")
+        live_log_box = st.empty()
+        _live_lines: list[str] = []
 
-        if st.session_state.crawled:
-            st.markdown("---")
-            preview_domain = st.selectbox(
-                "Preview crawled content for domain",
-                list(st.session_state.crawled.keys()),
-                key="sel_preview",
-            )
-            full_text = st.session_state.crawled[preview_domain]
-            char_count = len(full_text)
-            word_count = len(full_text.split())
-            st.markdown(
-                f"<span style='color:#64748b;font-size:12px;'>"
-                f"📄 {word_count:,} words · {char_count:,} characters</span>",
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                f"""<div style="
-                    background: #0a0a14;
-                    border: 1px solid rgba(99,102,241,0.2);
-                    border-radius: 12px;
-                    padding: 20px 24px;
-                    height: 420px;
-                    overflow-y: auto;
-                    font-family: 'Courier New', monospace;
-                    font-size: 13px;
-                    line-height: 1.75;
-                    color: #94a3b8;
-                    white-space: pre-wrap;
-                    word-break: break-word;
-                    margin-top: 8px;
-                ">{full_text}</div>""",
+        def _render_log(lines: list[str]) -> None:
+            inner = "".join(f"<div>{line}</div>" for line in lines[-60:])
+            live_log_box.markdown(
+                f"<div class='log-box' style='max-height:320px;'>{inner}</div>",
                 unsafe_allow_html=True,
             )
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# STEP 4 — Generate Emails
-# ═══════════════════════════════════════════════════════════════════════════════
-with st.expander("**Step 4 — Generate Personalized Emails**", expanded=(st.session_state.step == 4)):
-    st.markdown("<div class='step-title'><span class='step-badge'>4</span>AI-draft outreach per contact</div>",
-                unsafe_allow_html=True)
+        def _live(msg: str, level: str = "info") -> None:
+            log(msg, level)
+            css = "ok" if level == "success" else "warn" if level == "warning" else "info"
+            ts  = time.strftime("%H:%M:%S")
+            _live_lines.append(
+                f"<span style='color:#475569'>[{ts}]</span> "
+                f"<span class='{css}'>{msg}</span>"
+            )
+            _render_log(_live_lines)
 
-    st.info(f"🧪 **Test mode** — sends will go to `{TEST_EMAIL}`, not the real address.", icon="🔒")
+        # ── Execute pipeline ──────────────────────────────────────────────────
+        if run_btn:
+            from pipeline.email_extraction import extract_contacts
+            from pipeline.crawler          import crawl_domains
+            from pipeline.email_generation import generate_email, generate_subject
 
-    if not st.session_state.contacts:
-        st.warning("Complete Steps 1–2 first.")
-    else:
-        from pipeline.email_generation import generate_email, generate_subject
+            total_domains  = len(active_domains)
+            STAGE1 = 0.33
+            STAGE2 = 0.33
+            STAGE3 = 0.34
 
-        col_all, col_single = st.columns([1, 2])
+            # ── Stage 1: Extract contacts ──────────────────────────────────────
+            _live(f"⚡ Stage 1/3 — Extracting contacts for {total_domains} domain(s)…")
+            progress_bar.progress(0.0, text="Stage 1/3 — Extracting contacts…")
 
-        with col_all:
-            if st.button("⚡ Generate All", key="btn_gen_all"):
-                progress = st.progress(0, text="Generating…")
-                total  = len(st.session_state.contacts)
-                errors = []
-                for i, c in enumerate(st.session_state.contacts):
-                    company = c.get("company", "")
-                    name    = c.get("name", "")
-                    title   = c.get("title", "")
-                    email   = c.get("email", "")
-                    context = st.session_state.crawled.get(company, "No additional context available.")
-                    try:
-                        body    = generate_email(name=name, email=email, title=title,
-                                                 content=context, company_name=company)
-                        subject = generate_subject(body, name, company)
-                        st.session_state.generated_emails[email] = {
-                            "subject": subject, "body": body, "approved": False,
-                            "name": name, "title": title, "company": company, "real_email": email,
-                        }
-                        log(f"Generated email for {name}", "success")
-                    except Exception as e:
-                        errors.append(f"{name}: {e}")
-                        log(f"Failed for {name}: {e}", "warning")
-                    progress.progress((i + 1) / total, text=f"{i+1}/{total}")
+            contacts: list[dict] = []
+            try:
+                for i, domain in enumerate(active_domains):
+                    _live(f"   Fetching contacts for {domain}…")
+                    progress_bar.progress(
+                        STAGE1 * (i / total_domains),
+                        text=f"Stage 1/3 — {domain} ({i+1}/{total_domains})",
+                    )
 
-                if errors:
-                    st.warning("Some failed:\n" + "\n".join(errors))
-                else:
-                    st.success(f"✅ {total} emails generated!")
-                st.session_state.step = max(st.session_state.step, 5)
+                contacts = extract_contacts(active_domains, max_people=emails_per_co)
+                st.session_state.contacts = contacts
+                save_csv(_root("emails_output.csv"), contacts, ["company", "title", "name", "email"])
 
-        with col_single:
-            labels = [f"{c.get('name','?')} — {c.get('company','?')}"
-                      for c in st.session_state.contacts]
-            idx = st.selectbox("Generate for one contact", range(len(labels)),
-                               format_func=lambda i: labels[i], key="sel_single")
-            if st.button("Generate selected", key="btn_gen_single"):
-                c       = st.session_state.contacts[idx]
+                for c in contacts:
+                    _live(
+                        f"   ✓ {c.get('name','?')} · {c.get('title','?')} · "
+                        f"{c.get('email','?')} ({c.get('company','?')})",
+                        "success",
+                    )
+                _live(f"✅ Stage 1 complete — {len(contacts)} total contact(s)", "success")
+
+            except Exception as exc:
+                log_exc("Extraction failed", exc)
+                _live(f"❌ Extraction failed: {exc or type(exc).__name__}", "warning")
+                st.error(f"Extraction error: {exc or type(exc).__name__}")
+
+            progress_bar.progress(STAGE1, text="Stage 1/3 complete")
+
+            # ── Stage 2: Crawl websites ────────────────────────────────────────
+            _live(f"⚡ Stage 2/3 — Crawling {total_domains} website(s)…")
+            progress_bar.progress(STAGE1, text="Stage 2/3 — Crawling websites…")
+
+            crawled: dict[str, str] = {}
+            try:
+                for i, domain in enumerate(active_domains):
+                    progress_bar.progress(
+                        STAGE1 + STAGE2 * (i / total_domains),
+                        text=f"Stage 2/3 — Crawling {domain} ({i+1}/{total_domains})",
+                    )
+
+                # Run in a thread to avoid conflicts with Streamlit's event loop
+                def _run_crawl(domains):
+                    return crawl_domains(domains)
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _ex:
+                    crawled = _ex.submit(_run_crawl, active_domains).result()
+                st.session_state.crawled = crawled
+                rows = [{"domain": d, "scraped_content": c} for d, c in crawled.items()]
+                save_csv(_root("crawled_output.csv"), rows, ["domain", "scraped_content"])
+
+                for domain, content in crawled.items():
+                    words  = len(content.split())
+                    status = "warning" if content.startswith("Failed") else "success"
+                    _live(f"   ✓ {domain}: {words} words scraped", status)
+                _live(f"✅ Stage 2 complete — {len(crawled)} site(s) crawled", "success")
+
+            except Exception as exc:
+                log_exc("Crawl failed", exc)
+                _live(f"❌ Crawl failed: {exc or type(exc).__name__}", "warning")
+                st.error(f"Crawl error: {exc or type(exc).__name__} — full traceback saved to logs/pipeline.log")
+
+            progress_bar.progress(STAGE1 + STAGE2, text="Stage 2/3 complete")
+
+            # ── Stage 3: Generate emails ───────────────────────────────────────
+            total_contacts = len(st.session_state.contacts)
+            _live(f"⚡ Stage 3/3 — Generating emails for {total_contacts} contact(s)…")
+            progress_bar.progress(STAGE1 + STAGE2, text="Stage 3/3 — Generating emails…")
+
+            gen_errors: list[str] = []
+            for i, c in enumerate(st.session_state.contacts):
                 company = c.get("company", "")
                 name    = c.get("name", "")
                 title   = c.get("title", "")
                 email   = c.get("email", "")
                 context = st.session_state.crawled.get(company, "No additional context available.")
-                with st.spinner(f"Generating for {name}…"):
-                    try:
-                        body    = generate_email(name=name, email=email, title=title,
-                                                 content=context, company_name=company)
-                        subject = generate_subject(body, name, company)
-                        st.session_state.generated_emails[email] = {
-                            "subject": subject, "body": body, "approved": False,
-                            "name": name, "title": title, "company": company, "real_email": email,
-                        }
-                        log(f"Generated for {name}", "success")
-                        st.success(f"✅ Draft ready for {name}")
-                        st.session_state.step = max(st.session_state.step, 5)
-                    except Exception as e:
-                        st.error(str(e))
+
+                _live(f"   Generating email for {name} at {company}…")
+                progress_bar.progress(
+                    STAGE1 + STAGE2 + STAGE3 * ((i) / max(total_contacts, 1)),
+                    text=f"Stage 3/3 — {name} ({i+1}/{total_contacts})",
+                )
+
+                try:
+                    body    = generate_email(name=name, email=email, title=title,
+                                             content=context, company_name=company)
+                    subject = generate_subject(body, name, company)
+                    st.session_state.generated_emails[email] = {
+                        "subject": subject, "body": body, "approved": False,
+                        "name": name, "title": title, "company": company, "real_email": email,
+                    }
+                    _live(f"   ✓ Draft ready for {name} ({title})", "success")
+                except Exception as exc:
+                    log_exc(f"Email generation failed for {name}", exc)
+                    gen_errors.append(f"{name}: {exc}")
+                    _live(f"   ❌ Failed for {name}: {exc or type(exc).__name__}", "warning")
+
+            # ── Pipeline complete ──────────────────────────────────────────────
+            total_ready = len(st.session_state.generated_emails)
+            progress_bar.progress(1.0, text="Pipeline complete ✓")
+            _live(f"🎉 Pipeline complete — {total_ready} email(s) ready to review!", "success")
+
+            if gen_errors:
+                st.warning("Some emails failed to generate:\n" + "\n".join(gen_errors))
+
+            st.session_state.step = max(st.session_state.step, 3)
+            st.success(
+                f"✅ Pipeline done — **{total_ready}** email(s) generated. "
+                "Scroll down to **Review & Send**."
+            )
+
+        # ── Post-run summary ───────────────────────────────────────────────────
+        if st.session_state.contacts or st.session_state.generated_emails:
+            st.markdown("---")
+            col_a, col_b, col_c = st.columns(3)
+            for col, num, label in [
+                (col_a, len(st.session_state.contacts),         "Contacts Extracted"),
+                (col_b, len(st.session_state.crawled),          "Sites Crawled"),
+                (col_c, len(st.session_state.generated_emails), "Emails Generated"),
+            ]:
+                col.markdown(
+                    f"<div class='metric-box'><div class='metric-num'>{num}</div>"
+                    f"<div class='metric-label'>{label}</div></div>",
+                    unsafe_allow_html=True,
+                )
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# STEP 5 — Review & Send
+# STEP 3 — Review & Send
 # ═══════════════════════════════════════════════════════════════════════════════
-with st.expander("**Step 5 — Review & Send**", expanded=(st.session_state.step == 5)):
-    st.markdown("<div class='step-title'><span class='step-badge'>5</span>Approve drafts then send</div>",
+with st.expander("**Step 3 — Review & Send**", expanded=(st.session_state.step == 3)):
+    st.markdown("<div class='step-title'><span class='step-badge'>3</span>Approve drafts then send</div>",
                 unsafe_allow_html=True)
 
     st.markdown(
@@ -534,7 +625,7 @@ with st.expander("**Step 5 — Review & Send**", expanded=(st.session_state.step
     )
 
     if not st.session_state.generated_emails:
-        st.warning("No emails generated yet — complete Step 4 first.")
+        st.warning("No emails generated yet — run the pipeline first (Step 2).")
     else:
         col_aa, col_ra = st.columns(2)
         with col_aa:
@@ -577,7 +668,6 @@ with st.expander("**Step 5 — Review & Send**", expanded=(st.session_state.step
             new_subject = st.text_input("Subject", value=data["subject"], key=f"subj_{real_email}")
             new_body    = st.text_area("Body",    value=data["body"],    height=220, key=f"body_{real_email}")
 
-            # Persist inline edits back to state
             st.session_state.generated_emails[real_email]["subject"] = new_subject
             st.session_state.generated_emails[real_email]["body"]    = new_body
 
@@ -593,14 +683,20 @@ with st.expander("**Step 5 — Review & Send**", expanded=(st.session_state.step
                         with st.spinner("Sending…"):
                             try:
                                 from pipeline.email_sender import get_gmail_service, send_email
-                                svc = get_gmail_service()
+                                svc    = get_gmail_service()
                                 msg_id = send_email(svc, to=TEST_EMAIL,
                                                     subject=new_subject, body=new_body)
                                 log(f"Sent for {data['name']} → ID {msg_id}", "success")
                                 st.success(f"✅ Sent! ID: {msg_id}")
+                                # Feature 2: mark this company as emailed
+                                domain = data.get("company", "")
+                                if domain:
+                                    mark_domain_emailed(domain)
+                                    st.session_state.emailed_domains.add(domain)
+                                    log(f"Marked {domain} as emailed", "success")
                             except Exception as e:
-                                log(f"Send failed: {e}", "warning")
-                                st.error(str(e))
+                                log_exc("Send failed", e)
+                                st.error(f"Send failed: {e or type(e).__name__} — see logs/pipeline.log")
 
             st.markdown("<hr style='margin:16px 0;border-color:rgba(99,102,241,0.1);'>",
                         unsafe_allow_html=True)
@@ -624,13 +720,21 @@ with st.expander("**Step 5 — Review & Send**", expanded=(st.session_state.step
                             msg_id = send_email(svc, to=TEST_EMAIL,
                                                 subject=data["subject"], body=data["body"])
                             log(f"Bulk sent for {data['name']} → ID {msg_id}", "success")
+                            # Feature 2: mark this company as emailed
+                            domain = data.get("company", "")
+                            if domain:
+                                mark_domain_emailed(domain)
+                                st.session_state.emailed_domains.add(domain)
                             sent += 1
                         except Exception as e:
+                            log_exc(f"Bulk send failed for {data['name']}", e)
                             errs.append(f"{data['name']}: {e}")
                             log(f"Bulk failed for {data['name']}: {e}", "warning")
                     if errs:
                         st.warning(f"Sent {sent}, failed {len(errs)}:\n" + "\n".join(errs))
                     else:
                         st.success(f"✅ {sent} emails sent to {TEST_EMAIL}!")
+                        log(f"Marked {sent} domain(s) as emailed", "success")
                 except Exception as e:
-                    st.error(f"Gmail init failed: {e}")
+                    log_exc("Gmail init failed", e)
+                    st.error(f"Gmail init failed: {e or type(e).__name__} — see logs/pipeline.log")

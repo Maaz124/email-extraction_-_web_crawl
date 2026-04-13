@@ -64,7 +64,7 @@ Write a concise, personalized, and genuine cold email that:
 - Output ONLY the email body (no subject line, no metadata)
 """
 
-CALENDLY_LINK = "https://calendar.google.com/calendar/u/0/r"
+CALENDLY_LINK = "https://calendly.com/ahsan-ahmad-digitalytics/30min"
 
 
 def generate_email(
