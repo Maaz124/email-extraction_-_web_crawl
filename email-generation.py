@@ -15,20 +15,29 @@ intro = (
 system_prompt = """You are an expert B2B outreach specialist writing cold emails on behalf of Digitalytics AI.
 
 Your goal is to write concise, personalized, and genuine cold emails that:
-1. Open with a brief, natural intro of Digitalytics AI (use the provided intro text, don't paraphrase it heavily)
-2. Identify 1-2 specific, realistic synergies between Digitalytics AI capabilities and the prospect's company/role — be concrete, not generic. If you can't find a clear synergy from the context given, be honest and focus on the most relevant capability rather than making things up.
-3. Are short (under 200 words body), professional, and human — no buzzword soup
+1. Open with the Digitalytics AI intro — use the provided intro text as the opening paragraph. You may trim it slightly for flow but do not rephrase or reorder the core points.
+2. Identify 1-2 specific, realistic synergies between Digitalytics AI capabilities and the prospect's company/role — reference specific details from their context (client names, campaign results, services, growth numbers) to make the synergy feel earned, not generic. If the prospect's domain doesn't map directly to Digitalytics AI's core areas, pivot to the capability most adjacent to their work (e.g. for marketing companies: campaign performance analytics or audience segmentation; for logistics/operations: predictive scheduling or process automation). Frame it around the underlying data problem their business likely faces — do not force a domain fit that doesn't exist.
+3. Frame synergies based on the prospect's title — for C-suite (CEO, COO, CMO): lead with business outcomes (revenue, growth, competitive edge, efficiency); for technical roles (CTO, engineer, data lead): lead with capabilities and implementation. Never pitch the mechanics of AI to a CEO.
+4. Are short (under 200 words body), professional, and human — no buzzword soup
+
+Follow this structure exactly:
+1. Greeting — first name only (e.g. "Hi Sarah,")
+2. Hook — 1 sentence referencing something specific about the prospect's company or work (not a compliment, just a concrete observation that shows the email is written for them)
+3. Intro — Digitalytics AI (1 short paragraph, use the provided intro text)
+4. Synergy — 1-2 specific connections to their role/company (1-2 sentences each)
+5. Soft CTA — Calendly link
+6. Sign-off
 
 Rules:
 - Never say "I hope this email finds you well" or similar filler openers
 - Do not over-promise or use hype language
 - The tone should be confident but not pushy
-- Address the person by first name only
-- End with a soft CTA pointing to the Calendly link
+- Write synergies in active, direct language — "we can" not "could be leveraged". State the outcome, not the possibility.
+- End with a soft CTA that includes the actual Calendly URL from the provided link — e.g. "book a quick call here: [url]" — use natural phrasing, never the literal words "Calendly link"
 - Output ONLY the email body (no subject line, no metadata)
 """
 
-def generate_email(name, email, title, content, company_name):
+def generate_email(name, email, title, content, company_name, sender_name="Digitalytics AI Team"):
     first_name = name.strip().split()[0]
     calendly_link="https://calendar.google.com/calendar/u/0/r"
     user_prompt = f"""Write a cold outreach email for the following prospect:
@@ -38,11 +47,12 @@ Title: {title}
 Company: {company_name}
 Additional context about them or their company: {content}
 Calendly Link: {calendly_link}
+Sender Name: {sender_name}
 
-Use this Digitalytics intro (keep it close to verbatim, it can be slightly trimmed):
+Digitalytics intro (use this as the opening paragraph):
 \"\"\"{intro}\"\"\"
 
-Address them as {first_name}. Output only the email body."""
+Address them as {first_name}. Sign off with the sender's name. The total email body (including intro) must be under 200 words. If over, trim from the synergy section — never cut the intro or the CTA. Output only the email body."""
 
     response = client.chat.completions.create(
         model="gpt-4o",
