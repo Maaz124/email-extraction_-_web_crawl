@@ -1,3 +1,4 @@
+streamlit
 crawl4ai
 requests
 python-dotenv
