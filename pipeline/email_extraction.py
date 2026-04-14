@@ -6,9 +6,13 @@ Fetches contacts + emails for a list of domains using the Apollo.io API.
 import requests
 import time
 import os
+import csv
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
+
+_MOCK_FILE = Path(__file__).resolve().parent.parent / "data" / "mock_contacts.csv"
 
 API_KEY = os.getenv("APOLLO_API_KEY")
 
@@ -22,8 +26,17 @@ HEADERS = {
 def get_emails_for_company(domain: str, max_people: int = 3) -> list[dict]:
     """
     Query Apollo for up to `max_people` contacts at `domain`.
+    If data/mock_contacts.csv exists, uses that instead (for testing).
     Returns a list of dicts with keys: company, title, name, email.
     """
+    # ── Mock bypass ───────────────────────────────────────────────────────────
+    if _MOCK_FILE.exists():
+        with open(_MOCK_FILE, encoding="utf-8") as f:
+            rows = [r for r in csv.DictReader(f) if r.get("domain") == domain]
+        print(f"  [MOCK] {len(rows)} contact(s) loaded from mock_contacts.csv")
+        return rows[:max_people]
+    # ─────────────────────────────────────────────────────────────────────────
+
     search_url = "https://api.apollo.io/v1/mixed_people/api_search"
     search_payload = {"q_organization_domains": domain, "page": 1}
 

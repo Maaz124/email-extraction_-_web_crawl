@@ -56,6 +56,102 @@ def get_gmail_service(token_file: str = DEFAULT_TOKEN_FILE):
     return build("gmail", "v1", credentials=creds)
 
 
+def _to_html(plain: str) -> str:
+    """Convert plain-text email body to a professional branded HTML email."""
+    import html as _html
+    import base64 as _b64
+    from pathlib import Path as _Path
+
+    # ── Embed logo as base64 so it works in every email client ────────────────
+    _logo_path = _Path(__file__).resolve().parent.parent / "data" / "digilogo.png"
+    if _logo_path.exists():
+        _logo_b64 = _b64.b64encode(_logo_path.read_bytes()).decode()
+        _logo_src = f"data:image/png;base64,{_logo_b64}"
+    else:
+        _logo_src = ""  # gracefully skip if logo missing
+
+    # ── Convert body paragraphs ───────────────────────────────────────────────
+    escaped = _html.escape(plain)
+    paragraphs = [p.strip() for p in escaped.split("\n\n") if p.strip()]
+    body_html = "".join(
+        f"<p style='margin:0 0 16px 0;'>{p.replace(chr(10), '<br>')}</p>"
+        for p in paragraphs
+    )
+
+    logo_tag = (
+        f"<img src='{_logo_src}' alt='Digitalytics' "
+        "style='height:40px;display:block;' />"
+        if _logo_src else
+        "<span style='font-size:20px;font-weight:700;color:#1a7a5e;'>Digitalytics</span>"
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr><td align="center">
+      <table width="620" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:8px;overflow:hidden;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.08);max-width:620px;width:100%;">
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:36px 36px 24px 36px;color:#333333;font-size:15px;line-height:1.7;">
+            {body_html}
+          </td>
+        </tr>
+
+        <!-- CTA Button — right after body -->
+        <tr>
+          <td style="padding:0 36px 32px 36px;">
+            <a href="https://calendly.com/ahsan-ahmad-digitalytics/30min"
+               style="display:inline-block;background:#1a7a5e;color:#ffffff;
+                      text-decoration:none;font-size:14px;font-weight:600;
+                      padding:12px 24px;border-radius:6px;">
+              Book a 30-min Call →
+            </a>
+          </td>
+        </tr>
+
+        <!-- Divider -->
+        <tr>
+          <td style="padding:0 36px;">
+            <hr style="border:none;border-top:1px solid #e8ecef;margin:0;">
+          </td>
+        </tr>
+
+        <!-- Footer: signature left, logo right -->
+        <tr>
+          <td style="padding:20px 36px 28px 36px;background:#f9fafb;">
+            <table cellpadding="0" cellspacing="0" width="100%">
+              <tr>
+                <td style="vertical-align:middle;">
+                  <p style="margin:0;font-size:14px;font-weight:700;color:#222;">Ahsan Ahmad</p>
+                  <p style="margin:2px 0 0 0;font-size:13px;color:#666;">Founder, Digitalytics AI</p>
+                  <p style="margin:4px 0 0 0;font-size:13px;">
+                    <a href="https://www.digitalytics.ai" style="color:#1a7a5e;text-decoration:none;">
+                      www.digitalytics.ai
+                    </a>
+                  </p>
+                </td>
+                <td align="right" style="vertical-align:middle;">
+                  {logo_tag}
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
+
+
 def send_email(
     service,
     to: str,
@@ -65,18 +161,20 @@ def send_email(
     attachment_name: str = "portfolio.pdf",
 ) -> str:
     """
-    Send a plain-text email via the Gmail API.
+    Send an HTML-formatted email via the Gmail API.
     Optionally attaches a PDF when attachment_bytes is provided.
     Returns the sent message ID.
     """
+    html_body = _to_html(body)
+
     if attachment_bytes:
         message = MIMEMultipart()
-        message.attach(MIMEText(body))
+        message.attach(MIMEText(html_body, "html"))
         pdf_part = MIMEApplication(attachment_bytes, _subtype="pdf")
         pdf_part.add_header("Content-Disposition", "attachment", filename=attachment_name)
         message.attach(pdf_part)
     else:
-        message = MIMEText(body)
+        message = MIMEText(html_body, "html")
 
     message["to"] = to
     message["from"] = "me"
@@ -86,3 +184,4 @@ def send_email(
     result = service.users().messages().send(userId="me", body={"raw": raw}).execute()
     print(f"  Sent to {to} — Message ID: {result['id']}")
     return result["id"]
+
