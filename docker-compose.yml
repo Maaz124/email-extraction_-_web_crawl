@@ -11,9 +11,9 @@ services:
     volumes:
       # Mount data folder to persist csv data and emailed logs
       - ./data:/app/data
-      # Mount secrets as read-only to prevent tampering by the container
+      # Mount secrets (token needs write access to auto-refresh)
       - ./.env:/app/.env:ro
-      - ./token.json:/app/token.json:ro
+      - ./token.json:/app/token.json
     deploy:
       resources:
         limits:
