@@ -1,47 +1,70 @@
 # Cold Outreach Pipeline
 
-Automates email extraction (Apollo API) and website crawling (Crawl4AI) from a CSV of companies.
+Automates personalised cold outreach — Apollo contact extraction, website crawling (Crawl4AI), AI email generation (OpenAI), and Gmail sending — all from a single Streamlit UI.
 
 ## Setup
-1. `pip install -r req.txt`
-2. Create `.env` file: `APOLLO_API_KEY="your_key"`
 
-## Usage
-Run the pipeline with your input CSV (must have a `Website` column):
+1. `pip install -r req.txt`
+2. Create `.env`:
+   ```
+   APOLLO_API_KEY="your_key"
+   CLIENT_ID="your_google_client_id"
+   CLIENT_SECRET="your_google_client_secret"
+   OPENAI_API_KEY="your_openai_key"
+   ```
+3. Run `python build-token.py` once to generate `token.json` (Gmail OAuth)
+
+## Running
+
 ```bash
-python run_pipeline.py companies_1.csv
+streamlit run ui/app.py
 ```
 
-## Outputs
-- `emails_output.csv` (Contacts)
-- `crawled_output.csv` (Scraped website text)
+Then follow the 3-step UI: **Configure → Run Pipeline → Review Sent Emails**
 
-run build token to gen a token 
+## Pipeline Flow (per domain)
 
+```
+[A] Extract contacts  →  Apollo API
+[B] Crawl website     →  Crawl4AI
+[C] Generate email    →  OpenAI (personalised per contact)
+[D] Send email        →  Gmail API
+    Mark domain as emailed  →  data/emailed_log.csv
+```
 
+## Mock Testing
 
-structure
+Place `data/mock_contacts.csv` to bypass Apollo and use test emails.
+Delete the file to switch back to real Apollo extraction.
 
+## Project Structure
+
+```
 cold outreach/
-├── build-token.py        ← OAuth token builder (kept)
-├── digit_context.md      ← Digitalytics capability doc for LLM
+├── build-token.py          ← Gmail OAuth token generator (run once)
+├── digit_context.md        ← Digitalytics capability doc fed to LLM
 ├── readme.md
-├── req.txt
-├── .env                  ← API keys
-├── token.json            ← Gmail OAuth token
+├── req.txt                 ← Python dependencies
+├── .env                    ← API keys (not committed)
+├── token.json              ← Gmail OAuth token (not committed)
+│
 ├── data/
-│   ├── companies.csv     ← Full company list
-│   ├── companies_1.csv   ← Current test list
-│   ├── digilogo.png      ← Email logo
-│   ├── mock_contacts.csv ← Test email bypass
-│   └── emailed_log.csv   ← Dedup log
-├── pipeline/             ← All pipeline logic
-│   ├── crawler.py
-│   ├── email_extraction.py
-│   ├── email_generation.py
-│   ├── email_sender.py
-│   └── run_pipeline.py
+│   ├── companies.csv       ← Full company list
+│   ├── companies_1.csv     ← Current working list
+│   ├── digilogo.png        ← Logo embedded in outgoing emails
+│   ├── mock_contacts.csv   ← Test bypass (delete to use real Apollo)
+│   └── emailed_log.csv     ← Tracks sent domains to prevent duplicates
+│
+├── pipeline/               ← Core pipeline modules
+│   ├── crawler.py          ← Crawl4AI website scraper
+│   ├── email_extraction.py ← Apollo contact fetcher
+│   ├── email_generation.py ← OpenAI email + subject generator
+│   ├── email_sender.py     ← Gmail API sender (HTML template)
+│   └── run_pipeline.py     ← CLI runner (optional)
+│
 ├── ui/
-│   └── app.py
+│   └── app.py              ← Streamlit dashboard
+│
 └── logs/
-    └── pipeline.log
+    └── pipeline.log        ← Full run logs
+```
