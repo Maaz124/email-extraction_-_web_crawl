@@ -17,3 +17,31 @@ python run_pipeline.py companies_1.csv
 - `crawled_output.csv` (Scraped website text)
 
 run build token to gen a token 
+
+
+
+structure
+
+cold outreach/
+├── build-token.py        ← OAuth token builder (kept)
+├── digit_context.md      ← Digitalytics capability doc for LLM
+├── readme.md
+├── req.txt
+├── .env                  ← API keys
+├── token.json            ← Gmail OAuth token
+├── data/
+│   ├── companies.csv     ← Full company list
+│   ├── companies_1.csv   ← Current test list
+│   ├── digilogo.png      ← Email logo
+│   ├── mock_contacts.csv ← Test email bypass
+│   └── emailed_log.csv   ← Dedup log
+├── pipeline/             ← All pipeline logic
+│   ├── crawler.py
+│   ├── email_extraction.py
+│   ├── email_generation.py
+│   ├── email_sender.py
+│   └── run_pipeline.py
+├── ui/
+│   └── app.py
+└── logs/
+    └── pipeline.log
