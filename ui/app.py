@@ -213,6 +213,7 @@ for key, default in {
     "generated_emails":   {},        # real_email -> {subject, body, approved, name, title, company}
     "logs":               [],
     "step":               1,
+    "attachment_pdf":     None,      # {"name": str, "bytes": bytes} or None
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -422,6 +423,26 @@ with st.expander("**Step 1 — Configure & Upload Companies**", expanded=(st.ses
         extra   = "…" if len(active) > 10 else ""
         if active:
             st.markdown(f"**Active domains ({len(active)}):** {preview}{extra}")
+
+        # ── PDF Attachment ─────────────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("#### 📎 Portfolio Attachment (optional)")
+        pdf_file = st.file_uploader(
+            "Attach a PDF to every outgoing email",
+            type=["pdf"],
+            key="pdf_upload",
+        )
+        if pdf_file is not None:
+            st.session_state.attachment_pdf = {
+                "name": pdf_file.name,
+                "bytes": pdf_file.read(),
+            }
+            st.success(f"✅ **{pdf_file.name}** will be attached to all emails.")
+        elif st.session_state.attachment_pdf:
+            st.info(f"📎 Current attachment: **{st.session_state.attachment_pdf['name']}**")
+            if st.button("Remove attachment", key="btn_remove_pdf"):
+                st.session_state.attachment_pdf = None
+                st.rerun()
 
         if st.button("Confirm & Continue →", key="btn_confirm_step1"):
             st.session_state.step = max(st.session_state.step, 2)
@@ -734,8 +755,13 @@ with st.expander("**Step 3 — Review & Send**", expanded=(st.session_state.step
                             try:
                                 from pipeline.email_sender import get_gmail_service, send_email
                                 svc    = get_gmail_service()
-                                msg_id = send_email(svc, to=TEST_EMAIL,
-                                                    subject=new_subject, body=new_body)
+                                att    = st.session_state.attachment_pdf
+                                msg_id = send_email(
+                                    svc, to=TEST_EMAIL,
+                                    subject=new_subject, body=new_body,
+                                    attachment_bytes=att["bytes"] if att else None,
+                                    attachment_name=att["name"]   if att else "portfolio.pdf",
+                                )
                                 log(f"Sent for {data['name']} → ID {msg_id}", "success")
                                 st.success(f"✅ Sent! ID: {msg_id}")
                                 # Feature 2: mark this company as emailed
@@ -763,12 +789,17 @@ with st.expander("**Step 3 — Review & Send**", expanded=(st.session_state.step
             with st.spinner("Sending…"):
                 try:
                     svc  = get_gmail_service()
+                    att  = st.session_state.attachment_pdf
                     sent = 0
                     errs = []
                     for real_email, data in approved_map.items():
                         try:
-                            msg_id = send_email(svc, to=TEST_EMAIL,
-                                                subject=data["subject"], body=data["body"])
+                            msg_id = send_email(
+                                svc, to=TEST_EMAIL,
+                                subject=data["subject"], body=data["body"],
+                                attachment_bytes=att["bytes"] if att else None,
+                                attachment_name=att["name"]   if att else "portfolio.pdf",
+                            )
                             log(f"Bulk sent for {data['name']} → ID {msg_id}", "success")
                             # Feature 2: mark this company as emailed
                             domain = data.get("company", "")

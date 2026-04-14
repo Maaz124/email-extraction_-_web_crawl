@@ -6,6 +6,8 @@ Handles Gmail OAuth authentication and sending via the Gmail API.
 import os
 import base64
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -54,12 +56,28 @@ def get_gmail_service(token_file: str = DEFAULT_TOKEN_FILE):
     return build("gmail", "v1", credentials=creds)
 
 
-def send_email(service, to: str, subject: str, body: str) -> str:
+def send_email(
+    service,
+    to: str,
+    subject: str,
+    body: str,
+    attachment_bytes: bytes | None = None,
+    attachment_name: str = "portfolio.pdf",
+) -> str:
     """
     Send a plain-text email via the Gmail API.
+    Optionally attaches a PDF when attachment_bytes is provided.
     Returns the sent message ID.
     """
-    message = MIMEText(body)
+    if attachment_bytes:
+        message = MIMEMultipart()
+        message.attach(MIMEText(body))
+        pdf_part = MIMEApplication(attachment_bytes, _subtype="pdf")
+        pdf_part.add_header("Content-Disposition", "attachment", filename=attachment_name)
+        message.attach(pdf_part)
+    else:
+        message = MIMEText(body)
+
     message["to"] = to
     message["from"] = "me"
     message["subject"] = subject

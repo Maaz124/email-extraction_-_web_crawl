@@ -53,7 +53,11 @@ Write a concise, personalized, and genuine cold email that:
 3. Intro — Digitalytics AI (1 short paragraph, use the provided intro text)
 4. Synergy — 1-2 specific connections to their role/company (1-2 sentences each), drawn from the capability reference above
 5. Soft CTA — include the actual Calendly URL with natural phrasing (e.g. "book a quick call here: [url]")
-6. Sign-off
+6. Sign-off — end with exactly this signature, no variations:
+
+Ahsan Ahmad
+Founder, Digitalytics AI
+https://www.digitalytics.ai
 
 ## Rules
 - Never say "I hope this email finds you well" or similar filler
@@ -61,6 +65,7 @@ Write a concise, personalized, and genuine cold email that:
 - Write synergies in active, direct language — "we can" not "could be leveraged"
 - State the outcome, not the possibility
 - Never use the literal words "Calendly link" — embed the URL naturally
+- Use transition words naturally between sections to ensure smooth, logical flow throughout the email
 - Output ONLY the email body (no subject line, no metadata)
 """
 
@@ -90,7 +95,11 @@ Sender Name: {sender_name}
 Digitalytics intro (use this as the opening paragraph):
 \"\"\"{INTRO}\"\"\"
 
-Address them as {first_name}. Sign off with the sender's name.
+Address them as {first_name}. End with exactly this signature (no changes):
+
+Ahsan Ahmad
+Founder, Digitalytics AI
+https://www.digitalytics.ai
 The total email body (including intro) must be under 200 words.
 If over, trim from the synergy section — never cut the intro or the CTA.
 Output only the email body."""
