@@ -645,7 +645,9 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
                     subject = generate_subject(body, name, company)
                     st.session_state.generated_emails[email] = {
                         "subject": subject, "body": body, "approved": False,
-                        "name": name, "title": title, "company": company, "real_email": email,
+                        "name": name, "title": title, "company": company,
+                        "domain": company,  # company field IS the domain (from Apollo extraction)
+                        "real_email": email,
                     }
                     _live(f"   ✓ Draft ready for {name} ({title})", "success")
                 except Exception as exc:
@@ -764,8 +766,8 @@ with st.expander("**Step 3 — Review & Send**", expanded=(st.session_state.step
                                 )
                                 log(f"Sent for {data['name']} → ID {msg_id}", "success")
                                 st.success(f"✅ Sent! ID: {msg_id}")
-                                # Feature 2: mark this company as emailed
-                                domain = data.get("company", "")
+                                # Feature 2: mark this domain as emailed
+                                domain = data.get("domain") or data.get("company", "")
                                 if domain:
                                     mark_domain_emailed(domain)
                                     st.session_state.emailed_domains.add(domain)
@@ -801,8 +803,8 @@ with st.expander("**Step 3 — Review & Send**", expanded=(st.session_state.step
                                 attachment_name=att["name"]   if att else "portfolio.pdf",
                             )
                             log(f"Bulk sent for {data['name']} → ID {msg_id}", "success")
-                            # Feature 2: mark this company as emailed
-                            domain = data.get("company", "")
+                            # Feature 2: mark this domain as emailed
+                            domain = data.get("domain") or data.get("company", "")
                             if domain:
                                 mark_domain_emailed(domain)
                                 st.session_state.emailed_domains.add(domain)
