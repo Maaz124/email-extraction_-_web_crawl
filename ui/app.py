@@ -272,12 +272,12 @@ st.markdown("""
 
 # ── Stat bar ──────────────────────────────────────────────────────────────────
 c1, c2, c3, c4 = st.columns(4)
-approved_count = sum(1 for v in st.session_state.generated_emails.values() if v.get("approved"))
+sent_count_hdr = sum(1 for v in st.session_state.generated_emails.values() if v.get("sent"))
 for col, num, label in [
     (c1, len(st.session_state.active_domains),   "Active Domains"),
     (c2, len(st.session_state.contacts),          "Contacts"),
     (c3, len(st.session_state.crawled),           "Crawled Sites"),
-    (c4, approved_count,                           "Approved Emails"),
+    (c4, sent_count_hdr,                           "Emails Sent"),
 ]:
     col.markdown(
         f"<div class='metric-box'><div class='metric-num'>{num}</div>"
@@ -494,20 +494,218 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
             )
             _render_log(_live_lines)
 
-        # ── Execute pipeline ──────────────────────────────────────────────────
+        # ── Execute pipeline  (domain-by-domain: Extract→Crawl→Generate→Send) ──
         if run_btn:
             from pipeline.email_extraction import extract_contacts
             from pipeline.crawler          import crawl_domains
             from pipeline.email_generation import generate_email, generate_subject
+            from pipeline.email_sender     import get_gmail_service, send_email
 
-            total_domains  = len(active_domains)
-            STAGE1 = 0.33
-            STAGE2 = 0.33
-            STAGE3 = 0.34
+            total_domains = len(active_domains)
+            att           = st.session_state.attachment_pdf
 
-            # ── Stage 1: Extract contacts ──────────────────────────────────────
-            _live(f"⚡ Stage 1/3 — Extracting contacts for {total_domains} domain(s)…")
-            progress_bar.progress(0.0, text="Stage 1/3 — Extracting contacts…")
+            # Stdout→queue helper (used inside per-domain crawl threads)
+            class _StdoutToQueue:
+                def __init__(self, q, orig): self.q = q; self.orig = orig; self._buf = ""
+                def write(self, text):
+                    self.orig.write(text)
+                    self._buf += text
+                    while "\n" in self._buf:
+                        line, self._buf = self._buf.split("\n", 1)
+                        if line.strip():
+                            self.q.put(line)
+                def flush(self): self.orig.flush()
+                def isatty(self): return False
+
+            # Init Gmail once for the whole run
+            _live("🔌 Initialising Gmail service…")
+            svc = None
+            try:
+                svc = get_gmail_service()
+                _live("✅ Gmail ready", "success")
+            except Exception as exc:
+                log_exc("Gmail init failed", exc)
+                _live(f"❌ Gmail init failed: {exc or type(exc).__name__}", "warning")
+                st.error(f"Gmail init failed: {exc or type(exc).__name__} — see logs/pipeline.log")
+
+            grand_sent   = 0
+            grand_errors: list[str] = []
+
+            # ── Domain loop ───────────────────────────────────────────────────
+            for d_idx, domain in enumerate(active_domains):
+                w = 1.0 / total_domains          # progress width per domain
+                b = d_idx / total_domains         # progress base for this domain
+
+                _live(f"{'─'*48}")
+                _live(f"📌  Domain {d_idx+1}/{total_domains}: {domain}")
+                _live(f"{'─'*48}")
+
+                # ── A) Extract ────────────────────────────────────────────────
+                _live("   ⚡ [A] Extracting contacts…")
+                progress_bar.progress(b + w*0.00, text=f"[{d_idx+1}/{total_domains}] A — Extracting: {domain}")
+                domain_contacts: list[dict] = []
+                try:
+                    domain_contacts = extract_contacts([domain], max_people=emails_per_co)
+                    st.session_state.contacts.extend(domain_contacts)
+                    save_csv(_root("emails_output.csv"), st.session_state.contacts,
+                             ["company", "title", "name", "email"])
+                    for c in domain_contacts:
+                        _live(f"   ✓ {c.get('name','?')} · {c.get('title','?')} · {c.get('email','?')}", "success")
+                    _live(f"   → {len(domain_contacts)} contact(s) found", "success")
+                except Exception as exc:
+                    log_exc(f"Extraction failed for {domain}", exc)
+                    _live(f"   ❌ Extraction failed: {exc or type(exc).__name__}", "warning")
+                progress_bar.progress(b + w*0.25, text=f"[{d_idx+1}/{total_domains}] A — done")
+
+                # ── B) Crawl ──────────────────────────────────────────────────
+                _live(f"   ⚡ [B] Crawling {domain}…")
+                progress_bar.progress(b + w*0.25, text=f"[{d_idx+1}/{total_domains}] B — Crawling: {domain}")
+                domain_crawled: dict[str, str] = {}
+                try:
+                    _crawl_q: queue.Queue = queue.Queue()
+                    _crawl_result: dict   = {}
+                    _crawl_exc            = [None]
+                    _dom                  = domain   # closure capture
+
+                    def _crawl_worker():
+                        import sys as _sys
+                        orig = _sys.stdout
+                        _sys.stdout = _StdoutToQueue(_crawl_q, orig)
+                        try:    _crawl_result.update(crawl_domains([_dom]))
+                        except Exception as e: _crawl_exc[0] = e
+                        finally:
+                            _sys.stdout = orig
+                            _crawl_q.put(None)
+
+                    t = threading.Thread(target=_crawl_worker, daemon=True)
+                    t.start()
+                    cs = 0
+                    while True:
+                        try:    line = _crawl_q.get(timeout=0.3)
+                        except queue.Empty: continue
+                        if line is None: break
+                        lvl = ("success" if "✓" in line or "COMPLETE" in line
+                               else "warning" if "✗" in line or "ERROR" in line else "info")
+                        _live(f"   {line}", lvl)
+                        cs = min(cs + 1, 8)
+                        progress_bar.progress(
+                            min(b + w*(0.25 + 0.25*cs/8), b + w*0.49),
+                            text=f"[{d_idx+1}/{total_domains}] B — crawling…")
+                    t.join()
+                    if _crawl_exc[0]: raise _crawl_exc[0]
+                    domain_crawled = dict(_crawl_result)
+                    st.session_state.crawled.update(domain_crawled)
+                    save_csv(_root("crawled_output.csv"),
+                             [{"domain": d, "scraped_content": c} for d, c in st.session_state.crawled.items()],
+                             ["domain", "scraped_content"])
+                    for dom, content in domain_crawled.items():
+                        words = len(content.split())
+                        _live(f"   ✓ {dom}: {words:,} words scraped",
+                              "warning" if content.startswith("Failed") else "success")
+                    _live("   → Crawl complete", "success")
+                except Exception as exc:
+                    log_exc(f"Crawl failed for {domain}", exc)
+                    _live(f"   ❌ Crawl failed: {exc or type(exc).__name__}", "warning")
+                progress_bar.progress(b + w*0.50, text=f"[{d_idx+1}/{total_domains}] B — done")
+
+                # ── C) Generate ───────────────────────────────────────────────
+                _live(f"   ⚡ [C] Generating {len(domain_contacts)} email(s)…")
+                context = (domain_crawled.get(domain)
+                           or st.session_state.crawled.get(domain, "No additional context available."))
+                domain_email_keys: list[str] = []
+                for ci, c in enumerate(domain_contacts):
+                    name    = c.get("name", "")
+                    title   = c.get("title", "")
+                    email   = c.get("email", "")
+                    company = c.get("company", domain)
+                    progress_bar.progress(
+                        b + w*(0.50 + 0.25*ci/max(len(domain_contacts), 1)),
+                        text=f"[{d_idx+1}/{total_domains}] C — {name}…")
+                    _live(f"   Generating for {name} ({title})…")
+                    try:
+                        body    = generate_email(name=name, email=email, title=title,
+                                                 content=context, company_name=company)
+                        subject = generate_subject(body, name, company)
+                        st.session_state.generated_emails[email] = {
+                            "subject": subject, "body": body, "approved": True,
+                            "sent": False, "msg_id": None, "send_error": None,
+                            "name": name, "title": title, "company": company,
+                            "domain": domain, "real_email": email,
+                        }
+                        domain_email_keys.append(email)
+                        _live(f"   ✓ Draft ready → {name}", "success")
+                    except Exception as exc:
+                        log_exc(f"Generation failed for {name}", exc)
+                        grand_errors.append(f"Generate {name}@{domain}: {exc}")
+                        _live(f"   ❌ Gen failed for {name}: {exc or type(exc).__name__}", "warning")
+                progress_bar.progress(b + w*0.75, text=f"[{d_idx+1}/{total_domains}] C — done")
+
+                # ── D) Send ───────────────────────────────────────────────────
+                _live(f"   ⚡ [D] Sending {len(domain_email_keys)} email(s)…")
+                domain_sent = 0
+                if svc:
+                    for ei, email_key in enumerate(domain_email_keys):
+                        data_e = st.session_state.generated_emails[email_key]
+                        progress_bar.progress(
+                            b + w*(0.75 + 0.25*ei/max(len(domain_email_keys), 1)),
+                            text=f"[{d_idx+1}/{total_domains}] D — sending to {email_key}…")
+                        try:
+                            msg_id = send_email(
+                                svc, to=email_key,
+                                subject=data_e["subject"], body=data_e["body"],
+                                attachment_bytes=att["bytes"] if att else None,
+                                attachment_name=att["name"]   if att else "portfolio.pdf",
+                            )
+                            st.session_state.generated_emails[email_key].update(
+                                {"sent": True, "msg_id": msg_id})
+                            _live(f"   ✅ Sent → {email_key}  (ID: {msg_id})", "success")
+                            log(f"Sent {data_e['name']} ({email_key}) → {msg_id}", "success")
+                            grand_sent  += 1
+                            domain_sent += 1
+                        except Exception as exc:
+                            log_exc(f"Send failed for {email_key}", exc)
+                            st.session_state.generated_emails[email_key]["send_error"] = str(exc)
+                            grand_errors.append(f"Send {email_key}: {exc}")
+                            _live(f"   ❌ Send failed → {email_key}: {exc or type(exc).__name__}", "warning")
+                else:
+                    _live("   ⚠️ Gmail unavailable — emails generated but not sent", "warning")
+                    for ek in domain_email_keys:
+                        st.session_state.generated_emails[ek]["send_error"] = "Gmail service unavailable"
+
+                if domain_sent > 0:
+                    mark_domain_emailed(domain)
+                    st.session_state.emailed_domains.add(domain)
+                    _live(f"   📝 {domain} marked as emailed", "success")
+
+                progress_bar.progress(b + w*1.0, text=f"[{d_idx+1}/{total_domains}] ✓ complete")
+                _live(f"✅ {domain}: {domain_sent}/{len(domain_email_keys)} sent")
+
+            # ── All domains done ──────────────────────────────────────────────
+            progress_bar.progress(1.0, text="All domains complete ✓")
+            _live(f"🎉 Pipeline complete — {grand_sent} email(s) sent across {total_domains} domain(s)!", "success")
+            if grand_errors:
+                st.warning("Some errors occurred:\n" + "\n".join(grand_errors))
+            else:
+                st.success(f"✅ Done — {grand_sent} emails sent!")
+            st.session_state.step = max(st.session_state.step, 3)
+
+        # ── Post-run summary ───────────────────────────────────────────────────
+        if st.session_state.contacts or st.session_state.generated_emails:
+            st.markdown("---")
+            sent_count = sum(1 for v in st.session_state.generated_emails.values() if v.get("sent"))
+            col_a, col_b, col_c = st.columns(3)
+            for col, num, label in [
+                (col_a, len(st.session_state.contacts),  "Contacts Extracted"),
+                (col_b, len(st.session_state.crawled),   "Sites Crawled"),
+                (col_c, sent_count,                       "Emails Sent"),
+            ]:
+                col.markdown(
+                    f"<div class='metric-box'><div class='metric-num'>{num}</div>"
+                    f"<div class='metric-label'>{label}</div></div>",
+                    unsafe_allow_html=True,
+                )
+
+
 
             contacts: list[dict] = []
             try:
@@ -685,139 +883,55 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
                 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# STEP 3 — Review & Send
+# STEP 3 — Sent Email History
 # ═══════════════════════════════════════════════════════════════════════════════
-with st.expander("**Step 3 — Review & Send**", expanded=(st.session_state.step == 3)):
-    st.markdown("<div class='step-title'><span class='step-badge'>3</span>Approve drafts then send</div>",
+with st.expander("**Step 3 — Sent Emails**", expanded=(st.session_state.step == 3)):
+    st.markdown("<div class='step-title'><span class='step-badge'>3</span>Sent email history</div>",
                 unsafe_allow_html=True)
-
-    st.markdown(
-        f"<div class='card'><span class='chip chip-warning'>🧪 Test Mode</span>"
-        f"&nbsp; All emails will be delivered to <code>{TEST_EMAIL}</code>.</div>",
-        unsafe_allow_html=True,
-    )
-
     if not st.session_state.generated_emails:
-        st.warning("No emails generated yet — run the pipeline first (Step 2).")
+        st.warning("No emails sent yet — run the pipeline first (Step 2).")
     else:
-        col_aa, col_ra = st.columns(2)
-        with col_aa:
-            if st.button("✅ Approve All", key="btn_approve_all"):
-                for k in st.session_state.generated_emails:
-                    st.session_state.generated_emails[k]["approved"] = True
-                st.success("All approved!")
-        with col_ra:
-            if st.button("❌ Clear All Approvals", key="btn_clear_all"):
-                for k in st.session_state.generated_emails:
-                    st.session_state.generated_emails[k]["approved"] = False
-                st.info("Approvals cleared.")
-
+        all_e   = st.session_state.generated_emails
+        sent_e  = {k: v for k, v in all_e.items() if v.get("sent")}
+        fail_e  = {k: v for k, v in all_e.items() if not v.get("sent") and v.get("send_error")}
+        pend_e  = {k: v for k, v in all_e.items() if not v.get("sent") and not v.get("send_error")}
+        cs1, cs2, cs3 = st.columns(3)
+        for col, num, label in [
+            (cs1, len(sent_e),  "✅ Sent"),
+            (cs2, len(fail_e),  "❌ Failed"),
+            (cs3, len(pend_e),  "⏳ Pending"),
+        ]:
+            col.markdown(
+                f"<div class='metric-box'><div class='metric-num'>{num}</div>"
+                f"<div class='metric-label'>{label}</div></div>",
+                unsafe_allow_html=True)
         st.markdown("---")
-
-        # ── Per-email cards ────────────────────────────────────────────────────
-        for real_email, data in st.session_state.generated_emails.items():
-            approved = data.get("approved", False)
-            badge    = ("<span class='chip chip-success'>✓ Approved</span>" if approved
-                        else "<span class='chip chip-warning'>⏳ Pending</span>")
-
+        for real_email, data in all_e.items():
+            if data.get("sent"):
+                chip = "<span class='chip chip-success'>✅ Sent</span>"
+            elif data.get("send_error"):
+                chip = "<span class='chip chip-error'>❌ Failed</span>"
+            else:
+                chip = "<span class='chip chip-warning'>⏳ Pending</span>"
             st.markdown(
                 f"""<div class='card'>
-                <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;'>
+                <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;'>
                     <div>
-                        <span style='font-weight:600;color:#c7d2fe;font-size:16px;'>{data['name']}</span>
+                        <span style='font-weight:600;color:#c7d2fe;'>{data['name']}</span>
                         <span style='color:#64748b;font-size:13px;'> · {data['title']} · {data['company']}</span>
                     </div>
-                    {badge}
+                    {chip}
                 </div>
-                <div style='margin-bottom:6px;'>
-                    <span style='color:#94a3b8;font-size:12px;'>TO (TEST):</span>
-                    <code style='color:#818cf8;'>{TEST_EMAIL}</code>
-                    <span style='color:#475569;font-size:12px;'> (real: {real_email})</span>
+                <div style='font-size:12px;color:#94a3b8;'>
+                    TO: <code style='color:#818cf8;'>{real_email}</code>
+                    &nbsp;|&nbsp; MSG ID: <code style='color:#475569;'>{data.get('msg_id') or data.get('send_error') or '—'}</code>
                 </div>
                 </div>""",
-                unsafe_allow_html=True,
-            )
-
-            new_subject = st.text_input("Subject", value=data["subject"], key=f"subj_{real_email}")
-            new_body    = st.text_area("Body",    value=data["body"],    height=220, key=f"body_{real_email}")
-
-            st.session_state.generated_emails[real_email]["subject"] = new_subject
-            st.session_state.generated_emails[real_email]["body"]    = new_body
-
-            col_chk, col_btn, _ = st.columns([1, 1, 4])
-            with col_chk:
-                cb = st.checkbox("Approve", value=approved, key=f"chk_{real_email}")
-                st.session_state.generated_emails[real_email]["approved"] = cb
-            with col_btn:
-                if st.button("Send now →", key=f"send_{real_email}"):
-                    if not cb:
-                        st.warning("Approve this email first.")
-                    else:
-                        with st.spinner("Sending…"):
-                            try:
-                                from pipeline.email_sender import get_gmail_service, send_email
-                                svc    = get_gmail_service()
-                                att    = st.session_state.attachment_pdf
-                                msg_id = send_email(
-                                    svc, to=TEST_EMAIL,
-                                    subject=new_subject, body=new_body,
-                                    attachment_bytes=att["bytes"] if att else None,
-                                    attachment_name=att["name"]   if att else "portfolio.pdf",
-                                )
-                                log(f"Sent for {data['name']} → ID {msg_id}", "success")
-                                st.success(f"✅ Sent! ID: {msg_id}")
-                                # Feature 2: mark this domain as emailed
-                                domain = data.get("domain") or data.get("company", "")
-                                if domain:
-                                    mark_domain_emailed(domain)
-                                    st.session_state.emailed_domains.add(domain)
-                                    log(f"Marked {domain} as emailed", "success")
-                            except Exception as e:
-                                log_exc("Send failed", e)
-                                st.error(f"Send failed: {e or type(e).__name__} — see logs/pipeline.log")
-
-            st.markdown("<hr style='margin:16px 0;border-color:rgba(99,102,241,0.1);'>",
+                unsafe_allow_html=True)
+            with st.expander(f"📧 View email — {data['subject'][:60]}"):
+                st.markdown(f"**Subject:** {data['subject']}")
+                st.markdown(f"<div class='email-preview'>{data['body']}</div>",
+                            unsafe_allow_html=True)
+            st.markdown("<hr style='margin:12px 0;border-color:rgba(99,102,241,0.1);'>",
                         unsafe_allow_html=True)
 
-        # ── Bulk send ──────────────────────────────────────────────────────────
-        approved_map = {k: v for k, v in st.session_state.generated_emails.items()
-                        if v.get("approved")}
-        st.markdown(
-            f"**{len(approved_map)}** / **{len(st.session_state.generated_emails)}** emails approved."
-        )
-        if st.button(f"🚀 Send All Approved ({len(approved_map)})", key="btn_bulk_send",
-                     disabled=len(approved_map) == 0):
-            from pipeline.email_sender import get_gmail_service, send_email
-            with st.spinner("Sending…"):
-                try:
-                    svc  = get_gmail_service()
-                    att  = st.session_state.attachment_pdf
-                    sent = 0
-                    errs = []
-                    for real_email, data in approved_map.items():
-                        try:
-                            msg_id = send_email(
-                                svc, to=TEST_EMAIL,
-                                subject=data["subject"], body=data["body"],
-                                attachment_bytes=att["bytes"] if att else None,
-                                attachment_name=att["name"]   if att else "portfolio.pdf",
-                            )
-                            log(f"Bulk sent for {data['name']} → ID {msg_id}", "success")
-                            # Feature 2: mark this domain as emailed
-                            domain = data.get("domain") or data.get("company", "")
-                            if domain:
-                                mark_domain_emailed(domain)
-                                st.session_state.emailed_domains.add(domain)
-                            sent += 1
-                        except Exception as e:
-                            log_exc(f"Bulk send failed for {data['name']}", e)
-                            errs.append(f"{data['name']}: {e}")
-                            log(f"Bulk failed for {data['name']}: {e}", "warning")
-                    if errs:
-                        st.warning(f"Sent {sent}, failed {len(errs)}:\n" + "\n".join(errs))
-                    else:
-                        st.success(f"✅ {sent} emails sent to {TEST_EMAIL}!")
-                        log(f"Marked {sent} domain(s) as emailed", "success")
-                except Exception as e:
-                    log_exc("Gmail init failed", e)
-                    st.error(f"Gmail init failed: {e or type(e).__name__} — see logs/pipeline.log")
