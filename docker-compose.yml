@@ -1,7 +1,6 @@
-version: '3.8'
-
 services:
   cold-outreach:
+    image: cold-outreach-app:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -22,3 +21,4 @@ services:
           memory: 1G
         reservations:
           memory: 256M
+
