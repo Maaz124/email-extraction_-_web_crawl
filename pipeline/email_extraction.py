@@ -60,24 +60,17 @@ def get_emails_for_company(domain: str, max_people: int = 3) -> list[dict]:
 
 def extract_contacts(domains: list[str], max_people: int = 3) -> list[dict]:
     """
-    Run extraction across multiple domains.
-    Injects a test contact if Apollo returns nothing.
+    Run extraction across multiple domains via Apollo.
+    Returns real contacts only — no fallback injection.
+    If Apollo returns nothing for a domain, that domain is skipped.
     """
     all_contacts: list[dict] = []
     for domain in domains:
         print(f"\n--- Processing {domain} ---")
         contacts = get_emails_for_company(domain, max_people=max_people)
-        all_contacts.extend(contacts)
-
-    if not all_contacts:
-        print("\n[TEST MODE] Apollo returned 0 valid emails. Injecting test contact…")
-        all_contacts.append(
-            {
-                "company": domains[0] if domains else "digitalytics.ai",
-                "title": "CEO",
-                "name": "Ahmad Ahsan",
-                "email": "ahmadahsan1997@gmail.com",
-            }
-        )
+        if contacts:
+            all_contacts.extend(contacts)
+        else:
+            print(f"  Apollo returned no contacts for {domain} — skipping")
 
     return all_contacts
