@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from openai import OpenAI
 from dotenv import load_dotenv
+from pipeline.log import logger
 
 load_dotenv()
 
@@ -112,6 +113,13 @@ Output only the email body."""
         ],
         temperature=0.7,
     )
+    usage = response.usage
+    logger.info(
+        f"[EMAIL BODY] {name} @ {company_name} — "
+        f"input tokens: {usage.prompt_tokens}, "
+        f"output tokens: {usage.completion_tokens}, "
+        f"total: {usage.total_tokens}"
+    )
     return response.choices[0].message.content.strip()
 
 
@@ -135,5 +143,12 @@ def generate_subject(body: str, name: str, company_name: str) -> str:
             },
         ],
         temperature=0.7,
+    )
+    usage = response.usage
+    logger.info(
+        f"[SUBJECT LINE] {name} @ {company_name} — "
+        f"input tokens: {usage.prompt_tokens}, "
+        f"output tokens: {usage.completion_tokens}, "
+        f"total: {usage.total_tokens}"
     )
     return response.choices[0].message.content.strip()
