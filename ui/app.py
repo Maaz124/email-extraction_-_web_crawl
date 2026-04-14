@@ -548,7 +548,7 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
                     domain_contacts = extract_contacts([domain], max_people=emails_per_co)
                     st.session_state.contacts.extend(domain_contacts)
                     save_csv(_root("emails_output.csv"), st.session_state.contacts,
-                             ["company", "title", "name", "email"])
+                             ["domain", "company", "title", "name", "email"])
                     for c in domain_contacts:
                         _live(f"   ✓ {c.get('name','?')} · {c.get('title','?')} · {c.get('email','?')}", "success")
                     _live(f"   → {len(domain_contacts)} contact(s) found", "success")
