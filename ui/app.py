@@ -242,10 +242,6 @@ with st.sidebar:
         )
 
     st.markdown("---")
-    st.markdown(
-        f"<div class='chip chip-info'>🧪 Test mode — all sends → {TEST_EMAIL}</div>",
-        unsafe_allow_html=True,
-    )
 
     if st.session_state.logs:
         st.markdown("### 📋 Activity Log")

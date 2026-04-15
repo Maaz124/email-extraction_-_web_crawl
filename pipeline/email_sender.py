@@ -177,7 +177,7 @@ def send_email(
         message = MIMEText(html_body, "html")
 
     message["to"] = to
-    message["from"] = "me"
+    message["from"] = "Ahsan Ahmad <ahsan.ahmad@digitalytics.ai>"
     message["subject"] = subject
 
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()

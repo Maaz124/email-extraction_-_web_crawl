@@ -6,3 +6,5 @@ __pycache__/
 *.pyc
 logs/*.log
 temp_domains*.csv
+data/emailed_log.csv
+data/mock_contacts.csv
