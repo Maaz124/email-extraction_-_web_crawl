@@ -59,16 +59,6 @@ def get_gmail_service(token_file: str = DEFAULT_TOKEN_FILE):
 def _to_html(plain: str) -> str:
     """Convert plain-text email body to a professional branded HTML email."""
     import html as _html
-    import base64 as _b64
-    from pathlib import Path as _Path
-
-    # ── Embed logo as base64 so it works in every email client ────────────────
-    _logo_path = _Path(__file__).resolve().parent.parent / "data" / "digilogo.png"
-    if _logo_path.exists():
-        _logo_b64 = _b64.b64encode(_logo_path.read_bytes()).decode()
-        _logo_src = f"data:image/png;base64,{_logo_b64}"
-    else:
-        _logo_src = ""  # gracefully skip if logo missing
 
     # ── Convert body paragraphs ───────────────────────────────────────────────
     escaped = _html.escape(plain)
@@ -76,13 +66,6 @@ def _to_html(plain: str) -> str:
     body_html = "".join(
         f"<p style='margin:0 0 16px 0;'>{p.replace(chr(10), '<br>')}</p>"
         for p in paragraphs
-    )
-
-    logo_tag = (
-        f"<img src='{_logo_src}' alt='Digitalytics' "
-        "style='height:40px;display:block;' />"
-        if _logo_src else
-        "<span style='font-size:20px;font-weight:700;color:#1a7a5e;'>Digitalytics</span>"
     )
 
     return f"""<!DOCTYPE html>
@@ -134,9 +117,6 @@ def _to_html(plain: str) -> str:
                       www.digitalytics.ai
                     </a>
                   </p>
-                </td>
-                <td align="right" style="vertical-align:middle;">
-                  {logo_tag}
                 </td>
               </tr>
             </table>
