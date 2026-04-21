@@ -7,4 +7,4 @@ __pycache__/
 logs/*.log
 temp_domains*.csv
 data/emailed_log.csv
-data/mock_contacts.csv
+data/mock_contacts.csvdata/emailed_log.csv
