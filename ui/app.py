@@ -554,55 +554,59 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
                 progress_bar.progress(b + w*0.25, text=f"[{d_idx+1}/{total_domains}] A — done")
 
                 # ── B) Crawl ──────────────────────────────────────────────────
-                _live(f"   ⚡ [B] Crawling {domain}…")
-                progress_bar.progress(b + w*0.25, text=f"[{d_idx+1}/{total_domains}] B — Crawling: {domain}")
                 domain_crawled: dict[str, str] = {}
-                try:
-                    _crawl_q: queue.Queue = queue.Queue()
-                    _crawl_result: dict   = {}
-                    _crawl_exc            = [None]
-                    _dom                  = domain   # closure capture
-
-                    def _crawl_worker():
-                        import sys as _sys
-                        orig = _sys.stdout
-                        _sys.stdout = _StdoutToQueue(_crawl_q, orig)
-                        try:    _crawl_result.update(crawl_domains([_dom]))
-                        except Exception as e: _crawl_exc[0] = e
-                        finally:
-                            _sys.stdout = orig
-                            _crawl_q.put(None)
-
-                    t = threading.Thread(target=_crawl_worker, daemon=True)
-                    t.start()
-                    cs = 0
-                    while True:
-                        try:    line = _crawl_q.get(timeout=0.3)
-                        except queue.Empty: continue
-                        if line is None: break
-                        lvl = ("success" if "✓" in line or "COMPLETE" in line
-                               else "warning" if "✗" in line or "ERROR" in line else "info")
-                        _live(f"   {line}", lvl)
-                        cs = min(cs + 1, 8)
-                        progress_bar.progress(
-                            min(b + w*(0.25 + 0.25*cs/8), b + w*0.49),
-                            text=f"[{d_idx+1}/{total_domains}] B — crawling…")
-                    t.join()
-                    if _crawl_exc[0]: raise _crawl_exc[0]
-                    domain_crawled = dict(_crawl_result)
-                    st.session_state.crawled.update(domain_crawled)
-                    save_csv(_root("crawled_output.csv"),
-                             [{"domain": d, "scraped_content": c} for d, c in st.session_state.crawled.items()],
-                             ["domain", "scraped_content"])
-                    for dom, content in domain_crawled.items():
-                        words = len(content.split())
-                        _live(f"   ✓ {dom}: {words:,} words scraped",
-                              "warning" if content.startswith("Failed") else "success")
-                    _live("   → Crawl complete", "success")
-                except Exception as exc:
-                    log_exc(f"Crawl failed for {domain}", exc)
-                    _live(f"   ❌ Crawl failed: {exc or type(exc).__name__}", "warning")
-                progress_bar.progress(b + w*0.50, text=f"[{d_idx+1}/{total_domains}] B — done")
+                if not domain_contacts:
+                    _live(f"   ⏭️ [B] Skipping crawl for {domain} (0 contacts found)", "warning")
+                    progress_bar.progress(b + w*0.50, text=f"[{d_idx+1}/{total_domains}] B — skipped")
+                else:
+                    _live(f"   ⚡ [B] Crawling {domain}…")
+                    progress_bar.progress(b + w*0.25, text=f"[{d_idx+1}/{total_domains}] B — Crawling: {domain}")
+                    try:
+                        _crawl_q: queue.Queue = queue.Queue()
+                        _crawl_result: dict   = {}
+                        _crawl_exc            = [None]
+                        _dom                  = domain   # closure capture
+    
+                        def _crawl_worker():
+                            import sys as _sys
+                            orig = _sys.stdout
+                            _sys.stdout = _StdoutToQueue(_crawl_q, orig)
+                            try:    _crawl_result.update(crawl_domains([_dom]))
+                            except Exception as e: _crawl_exc[0] = e
+                            finally:
+                                _sys.stdout = orig
+                                _crawl_q.put(None)
+    
+                        t = threading.Thread(target=_crawl_worker, daemon=True)
+                        t.start()
+                        cs = 0
+                        while True:
+                            try:    line = _crawl_q.get(timeout=0.3)
+                            except queue.Empty: continue
+                            if line is None: break
+                            lvl = ("success" if "✓" in line or "COMPLETE" in line
+                                   else "warning" if "✗" in line or "ERROR" in line else "info")
+                            _live(f"   {line}", lvl)
+                            cs = min(cs + 1, 8)
+                            progress_bar.progress(
+                                min(b + w*(0.25 + 0.25*cs/8), b + w*0.49),
+                                text=f"[{d_idx+1}/{total_domains}] B — crawling…")
+                        t.join()
+                        if _crawl_exc[0]: raise _crawl_exc[0]
+                        domain_crawled = dict(_crawl_result)
+                        st.session_state.crawled.update(domain_crawled)
+                        save_csv(_root("crawled_output.csv"),
+                                 [{"domain": d, "scraped_content": c} for d, c in st.session_state.crawled.items()],
+                                 ["domain", "scraped_content"])
+                        for dom, content in domain_crawled.items():
+                            words = len(content.split())
+                            _live(f"   ✓ {dom}: {words:,} words scraped",
+                                  "warning" if content.startswith("Failed") else "success")
+                        _live("   → Crawl complete", "success")
+                    except Exception as exc:
+                        log_exc(f"Crawl failed for {domain}", exc)
+                        _live(f"   ❌ Crawl failed: {exc or type(exc).__name__}", "warning")
+                    progress_bar.progress(b + w*0.50, text=f"[{d_idx+1}/{total_domains}] B — done")
 
                 # ── C) Generate ───────────────────────────────────────────────
                 _live(f"   ⚡ [C] Generating {len(domain_contacts)} email(s)…")
