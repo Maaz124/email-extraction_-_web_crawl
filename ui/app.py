@@ -371,12 +371,12 @@ with st.expander("**Step 1 — Configure & Upload Companies**", expanded=(st.ses
         with col_s1:
             # Feature 5: emails per company
             epc = st.number_input(
-                "Emails to fetch per company (Apollo)",
+                "Emails to fetch per company",
                 min_value=1,
                 max_value=20,
                 value=st.session_state.emails_per_company,
                 step=1,
-                help="How many contacts Apollo will return per domain.",
+                help="How many contacts to fetch per domain from extracted_emails.csv.",
                 key="epc_input",
             )
             st.session_state.emails_per_company = epc
