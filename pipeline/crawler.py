@@ -4,11 +4,17 @@ Crawls a list of domains using crawl4ai and returns a dict of domain -> content.
 """
 
 import asyncio
+import io
 import sys
 import tiktoken
 import trafilatura
 from crawl4ai import AsyncWebCrawler
 from pipeline.log import logger
+
+# Force stdout/stderr to UTF-8 on Windows to avoid cp1252 encoding errors
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 _enc = tiktoken.encoding_for_model("gpt-4o")
 
@@ -48,8 +54,9 @@ async def _crawl_all(domains: list[str]) -> dict[str, str]:
                     logger.warning(f"[CRAWL] {domain} — no HTML returned by crawler")
                     content = "No HTML content extracted."
             except Exception as exc:
-                logger.error(f"[CRAWL] Failed to crawl {url}: {exc}")
-                content = f"Failed to crawl: {exc}"
+                safe_exc = str(exc).encode("utf-8", errors="replace").decode("utf-8")
+                logger.error(f"[CRAWL] Failed to crawl {url}: {safe_exc}")
+                content = f"Failed to crawl: {safe_exc}"
             results[domain] = content
     return results
 
