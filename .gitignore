@@ -1,5 +1,6 @@
 venv/
 token.json
+token2.json
 .env
 __pycache__/
 **/__pycache__/

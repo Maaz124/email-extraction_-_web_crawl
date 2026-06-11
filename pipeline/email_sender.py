@@ -24,6 +24,21 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TOKEN_FILE = str(_PROJECT_ROOT / "token.json")
 
+SENDER_PROFILES = {
+    "account1": {
+        "from_header":  "Ahsan Ahmad <ahsan.ahmad@digitalytics.ai>",
+        "display_name": "Ahsan Ahmad",
+        "title":        "Founder, Digitalytics AI",
+        "calendly":     "https://calendly.com/ahsan-ahmad-digitalytics/30min",
+    },
+    "account2": {
+        "from_header":  "Abdullah Asif <abdullah.asif@digitalytics.ai>",
+        "display_name": "Abdullah Asif",
+        "title":        "CTO, Digitalytics AI",
+        "calendly":     "https://calendly.com/ahsan-ahmad-digitalytics/30min",
+    },
+}
+
 
 def _client_config() -> dict:
     return {
@@ -42,10 +57,13 @@ def get_gmail_service(token_file: str = DEFAULT_TOKEN_FILE):
     creds = None
 
     if os.path.exists(token_file):
-        creds = Credentials.from_authorized_user_file(token_file, SCOPES)
+        # Load without enforcing scopes — avoids invalid_scope on refresh
+        # when token was originally granted with a different scope string.
+        creds = Credentials.from_authorized_user_file(token_file)
 
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
+    if not creds or not creds.token:
+        if creds and creds.refresh_token:
+            creds._scopes = None  # don't send scope in refresh request
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_config(_client_config(), SCOPES)
@@ -56,9 +74,10 @@ def get_gmail_service(token_file: str = DEFAULT_TOKEN_FILE):
     return build("gmail", "v1", credentials=creds)
 
 
-def _to_html(plain: str) -> str:
+def _to_html(plain: str, sender_key: str = "account1") -> str:
     """Convert plain-text email body to a professional branded HTML email."""
     import html as _html
+    profile = SENDER_PROFILES[sender_key]
 
     # ── Convert body paragraphs ───────────────────────────────────────────────
     escaped = _html.escape(plain)
@@ -88,7 +107,7 @@ def _to_html(plain: str) -> str:
         <!-- CTA Button — right after body -->
         <tr>
           <td style="padding:0 36px 32px 36px;">
-            <a href="https://calendly.com/ahsan-ahmad-digitalytics/30min"
+            <a href="{profile['calendly']}"
                style="display:inline-block;background:#1a7a5e;color:#ffffff;
                       text-decoration:none;font-size:14px;font-weight:600;
                       padding:12px 24px;border-radius:6px;">
@@ -101,25 +120,6 @@ def _to_html(plain: str) -> str:
         <tr>
           <td style="padding:0 36px;">
             <hr style="border:none;border-top:1px solid #e8ecef;margin:0;">
-          </td>
-        </tr>
-
-        <!-- Footer: signature left, logo right -->
-        <tr>
-          <td style="padding:20px 36px 28px 36px;background:#f9fafb;">
-            <table cellpadding="0" cellspacing="0" width="100%">
-              <tr>
-                <td style="vertical-align:middle;">
-                  <p style="margin:0;font-size:14px;font-weight:700;color:#222;">Ahsan Ahmad</p>
-                  <p style="margin:2px 0 0 0;font-size:13px;color:#666;">Founder, Digitalytics AI</p>
-                  <p style="margin:4px 0 0 0;font-size:13px;">
-                    <a href="https://www.digitalytics.ai" style="color:#1a7a5e;text-decoration:none;">
-                      www.digitalytics.ai
-                    </a>
-                  </p>
-                </td>
-              </tr>
-            </table>
           </td>
         </tr>
 
@@ -139,13 +139,16 @@ def send_email(
     body: str,
     attachment_bytes: bytes | None = None,
     attachment_name: str = "portfolio.pdf",
+    sender_key: str = "account1",
 ) -> str:
     """
     Send an HTML-formatted email via the Gmail API.
     Optionally attaches a PDF when attachment_bytes is provided.
     Returns the sent message ID.
     """
-    html_body = _to_html(body)
+    profile = SENDER_PROFILES[sender_key]
+    body = body.rstrip() + f"\n\n{profile['display_name']}\n{profile['title']}\nhttps://www.digitalytics.ai"
+    html_body = _to_html(body, sender_key=sender_key)
 
     if attachment_bytes:
         message = MIMEMultipart()
@@ -157,11 +160,12 @@ def send_email(
         message = MIMEText(html_body, "html")
 
     message["to"] = to
-    message["from"] = "Ahsan Ahmad <ahsan.ahmad@digitalytics.ai>"
+    message["from"] = profile["from_header"]
     message["subject"] = subject
 
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     result = service.users().messages().send(userId="me", body={"raw": raw}).execute()
-    print(f"  Sent to {to} — Message ID: {result['id']}")
+    label = "Acct1/Ahsan" if sender_key == "account1" else "Acct2/Abdullah"
+    print(f"  [{label}] Sent to {to} — Message ID: {result['id']}")
     return result["id"]
 

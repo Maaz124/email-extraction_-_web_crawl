@@ -1,0 +1,258 @@
+- generic [ref=e2]:
+  - generic [ref=e11]:
+    - heading "✉️ Cold Outreach" [level=2] [ref=e16]
+    - paragraph [ref=e21]:
+      - strong [ref=e22]: Digitalytics AI
+      - text: · Automated Pipeline
+    - separator [ref=e27]
+    - generic [ref=e32]:
+      - generic [ref=e33]: "1"
+      - generic [ref=e34]: Configure & Upload
+    - generic [ref=e39]:
+      - generic [ref=e40]: "2"
+      - generic [ref=e41]: Run Pipeline
+    - generic [ref=e46]:
+      - generic [ref=e47]: "3"
+      - generic [ref=e48]: Review & Send
+    - separator [ref=e53]
+    - heading "📋 Activity Log" [level=3] [ref=e427]
+    - generic [ref=e432]:
+      - generic [ref=e433]: "[23:42:48] Loaded 5 domains"
+      - generic [ref=e497]: "[23:43:12] Confirmed 5 active domains"
+  - generic [ref=e3]:
+    - banner [ref=e56]:
+      - generic [ref=e59]:
+        - button "Deploy" [ref=e61] [cursor=pointer]:
+          - generic [ref=e63]: Deploy
+        - button "Main menu" [ref=e65] [cursor=pointer]:
+          - img [ref=e66]
+    - generic [ref=e69]:
+      - generic [ref=e74]:
+        - heading "Cold Outreach Pipeline" [level=1] [ref=e76]:
+          - text: Cold Outreach Pipeline
+          - generic [ref=e77]:
+            - link "Link to heading":
+              - /url: "#cold-outreach-pipeline"
+              - img
+        - paragraph [ref=e78]: Configure · Run · Review · Send — fully automated
+      - generic [ref=e80]:
+        - generic [ref=e87]:
+          - generic [ref=e88]: "5"
+          - generic [ref=e89]: Active Domains
+        - generic [ref=e96]:
+          - generic [ref=e97]: "0"
+          - generic [ref=e98]: Contacts
+        - generic [ref=e105]:
+          - generic [ref=e106]: "0"
+          - generic [ref=e107]: Crawled Sites
+        - generic [ref=e114]:
+          - generic [ref=e115]: "0"
+          - generic [ref=e116]: Emails Sent
+      - group [ref=e123]:
+        - generic "keyboard_arrow_right Step 1 — Configure & Upload Companies" [ref=e506] [cursor=pointer]:
+          - generic [ref=e125]:
+            - generic [ref=e508]: keyboard_arrow_right
+            - paragraph [ref=e130]:
+              - strong [ref=e131]: Step 1 — Configure & Upload Companies
+      - group [ref=e179]:
+        - generic "keyboard_arrow_down Step 2 — Run Pipeline" [ref=e445] [cursor=pointer]:
+          - generic [ref=e181]:
+            - generic [ref=e447]: keyboard_arrow_down
+            - paragraph [ref=e186]:
+              - strong [ref=e187]: Step 2 — Run Pipeline
+        - generic [ref=e449]:
+          - generic [ref=e454]:
+            - generic [ref=e455]: "2"
+            - text: Extract contacts · Crawl websites · Generate emails
+          - paragraph [ref=e460]:
+            - text: Ready to process
+            - strong [ref=e461]: "5"
+            - text: domain(s),
+            - strong [ref=e462]: "3"
+            - text: contact(s) per company.
+          - alert [ref=e465]:
+            - generic [ref=e468]:
+              - generic [ref=e471]: 📊
+              - generic [ref=e472]:
+                - paragraph [ref=e473]:
+                  - strong [ref=e474]: "Account 1 (Ahsan):"
+                  - text: 4 / 20
+                - paragraph [ref=e475]:
+                  - text: 📊
+                  - strong [ref=e476]: "Account 2 (Abdullah):"
+                  - text: 0 / 20
+                - paragraph [ref=e477]: ─────────────────────────────────
+                - paragraph [ref=e478]:
+                  - strong [ref=e479]: "Total:"
+                  - text: 4 / 40 —
+                  - strong [ref=e480]: 36 remaining
+          - button "▶ Run Full Pipeline" [active] [ref=e483] [cursor=pointer]:
+            - paragraph [ref=e487]: ▶ Run Full Pipeline
+          - generic [ref=e489]:
+            - paragraph [ref=e492]: All domains complete ✓
+            - progressbar "100% Loaded" [ref=e582]
+          - generic [ref=e517]:
+            - generic [ref=e518]: "[23:44:02] ⚡ [D] Sending 1 email(s)…"
+            - generic [ref=e519]: "[23:44:03] ✅ [Acct1/Ahsan] Sent → m.abdulrehman.shoukat+2@gmail.com (ID: 19eb7ff9d4a065d0)"
+            - generic [ref=e520]: "[23:44:03] 📝 meritushealth.com marked as emailed"
+            - generic [ref=e521]: "[23:44:03] ✅ meritushealth.com: 1/1 sent"
+            - generic [ref=e522]: "[23:44:03] ────────────────────────────────────────────────"
+            - generic [ref=e523]: "[23:44:03] 📌 Domain 3/5: niurology.com"
+            - generic [ref=e524]: "[23:44:03] ────────────────────────────────────────────────"
+            - generic [ref=e525]: "[23:44:03] ⚡ [A] Extracting contacts…"
+            - generic [ref=e526]: "[23:44:03] ✓ Michelle Froehlich · Administrator and Managing Director · m.abdulrehman.shoukat+3@gmail.com"
+            - generic [ref=e527]: "[23:44:03] → 1 contact(s) found"
+            - generic [ref=e528]: "[23:44:03] ⚡ [B] Crawling niurology.com…"
+            - generic [ref=e529]: "[23:44:04] [INIT].... → Crawl4AI 0.8.6"
+            - generic [ref=e530]: "[23:44:10] [FETCH]... ↓ https://niurology.com"
+            - generic [ref=e531]: "[23:44:10] | ✓ | ⏱: 5.93s"
+            - generic [ref=e532]: "[23:44:11] [SCRAPE].. ◆ https://niurology.com"
+            - generic [ref=e533]: "[23:44:11] | ✓ | ⏱: 0.23s"
+            - generic [ref=e534]: "[23:44:11] [COMPLETE] ● https://niurology.com"
+            - generic [ref=e535]: "[23:44:11] | ✓ | ⏱: 6.26s"
+            - generic [ref=e536]: "[23:44:11] ✓ niurology.com: 296 words scraped"
+            - generic [ref=e537]: "[23:44:11] → Crawl complete"
+            - generic [ref=e538]: "[23:44:11] ⚡ [C] Generating 1 email(s)…"
+            - generic [ref=e539]: "[23:44:11] Generating for Michelle Froehlich (Administrator and Managing Director)…"
+            - generic [ref=e540]: "[23:44:16] ✓ Draft ready → Michelle Froehlich"
+            - generic [ref=e541]: "[23:44:16] ⚡ [D] Sending 1 email(s)…"
+            - generic [ref=e542]: "[23:44:18] ✅ [Acct1/Ahsan] Sent → m.abdulrehman.shoukat+3@gmail.com (ID: 19eb7ffd423683f6)"
+            - generic [ref=e543]: "[23:44:18] 📝 niurology.com marked as emailed"
+            - generic [ref=e544]: "[23:44:18] ✅ niurology.com: 1/1 sent"
+            - generic [ref=e545]: "[23:44:18] ────────────────────────────────────────────────"
+            - generic [ref=e546]: "[23:44:18] 📌 Domain 4/5: oscarheviamd.com"
+            - generic [ref=e547]: "[23:44:18] ────────────────────────────────────────────────"
+            - generic [ref=e548]: "[23:44:18] ⚡ [A] Extracting contacts…"
+            - generic [ref=e549]: "[23:44:18] ✓ Ana Hevia · Advanced Registered Nurse Practitiner and Owner · m.abdulrehman.shoukat+4@gmail.com"
+            - generic [ref=e550]: "[23:44:18] → 1 contact(s) found"
+            - generic [ref=e551]: "[23:44:18] ⚡ [B] Crawling oscarheviamd.com…"
+            - generic [ref=e552]: "[23:44:19] [INIT].... → Crawl4AI 0.8.6"
+            - generic [ref=e553]: "[23:44:26] [FETCH]... ↓ https://oscarheviamd.com"
+            - generic [ref=e554]: "[23:44:26] | ✓ | ⏱: 6.98s"
+            - generic [ref=e555]: "[23:44:26] [SCRAPE].. ◆ https://oscarheviamd.com"
+            - generic [ref=e556]: "[23:44:27] | ✓ | ⏱: 0.06s"
+            - generic [ref=e557]: "[23:44:27] [COMPLETE] ● https://oscarheviamd.com"
+            - generic [ref=e558]: "[23:44:27] | ✓ | ⏱: 7.10s"
+            - generic [ref=e559]: "[23:44:31] ✓ oscarheviamd.com: 66 words scraped"
+            - generic [ref=e560]: "[23:44:31] → Crawl complete"
+            - generic [ref=e561]: "[23:44:31] ⚡ [C] Generating 1 email(s)…"
+            - generic [ref=e562]: "[23:44:31] Generating for Ana Hevia (Advanced Registered Nurse Practitiner and Owner)…"
+            - generic [ref=e563]: "[23:44:36] ✓ Draft ready → Ana Hevia"
+            - generic [ref=e564]: "[23:44:36] ⚡ [D] Sending 1 email(s)…"
+            - generic [ref=e565]: "[23:44:36] ✅ [Acct1/Ahsan] Sent → m.abdulrehman.shoukat+4@gmail.com (ID: 19eb800209f626a4)"
+            - generic [ref=e566]: "[23:44:36] 📝 oscarheviamd.com marked as emailed"
+            - generic [ref=e567]: "[23:44:36] ✅ oscarheviamd.com: 1/1 sent"
+            - generic [ref=e568]: "[23:44:36] ────────────────────────────────────────────────"
+            - generic [ref=e569]: "[23:44:36] 📌 Domain 5/5: wellmedica.com"
+            - generic [ref=e570]: "[23:44:36] ────────────────────────────────────────────────"
+            - generic [ref=e571]: "[23:44:36] ⚡ [A] Extracting contacts…"
+            - generic [ref=e572]: "[23:44:36] → 0 contact(s) found"
+            - generic [ref=e573]: "[23:44:36] ⏭️ [B] Skipping crawl for wellmedica.com (0 contacts found)"
+            - generic [ref=e578]: "[23:44:36] ⚡ [C] Generating 0 email(s)…"
+            - generic [ref=e579]: "[23:44:36] ⚡ [D] Sending 0 email(s)…"
+            - generic [ref=e580]: "[23:44:36] ✅ wellmedica.com: 0/0 sent"
+            - generic [ref=e581]: "[23:44:36] 🎉 Pipeline complete — 4 email(s) sent across 5 domain(s)!"
+          - alert [ref=e585]:
+            - generic [ref=e588]:
+              - generic [ref=e591]: ✅
+              - paragraph [ref=e593]: Done — 4 emails sent!
+          - separator [ref=e598]
+          - generic [ref=e600]:
+            - generic [ref=e607]:
+              - generic [ref=e608]: "4"
+              - generic [ref=e609]: Contacts Extracted
+            - generic [ref=e616]:
+              - generic [ref=e617]: "4"
+              - generic [ref=e618]: Sites Crawled
+            - generic [ref=e625]:
+              - generic [ref=e626]: "4"
+              - generic [ref=e627]: Emails Sent
+      - group [ref=e190]:
+        - generic "keyboard_arrow_down Step 3 — Sent Emails" [ref=e628] [cursor=pointer]:
+          - generic [ref=e192]:
+            - generic [ref=e630]: keyboard_arrow_down
+            - paragraph [ref=e197]:
+              - strong [ref=e198]: Step 3 — Sent Emails
+        - generic [ref=e632]:
+          - generic [ref=e637]:
+            - generic [ref=e638]: "3"
+            - text: Sent email history
+          - generic [ref=e640]:
+            - generic [ref=e647]:
+              - generic [ref=e648]: "4"
+              - generic [ref=e649]: ✅ Sent
+            - generic [ref=e656]:
+              - generic [ref=e657]: "0"
+              - generic [ref=e658]: ❌ Failed
+            - generic [ref=e665]:
+              - generic [ref=e666]: "0"
+              - generic [ref=e667]: ⏳ Pending
+          - separator [ref=e672]
+          - generic [ref=e677]:
+            - generic [ref=e678]:
+              - generic [ref=e679]: Kate Gassaway · APRN-BC Nurse Practitioner and Founder · Solutions Medical Center
+              - generic [ref=e680]: ✅ Sent
+            - generic [ref=e681]:
+              - text: "TO:"
+              - code [ref=e682]: m.abdulrehman.shoukat+1@gmail.com
+              - text: "| MSG ID:"
+              - code [ref=e683]: 19eb7ff609fe0152
+              - text: "| via:"
+              - code [ref=e684]: Acct1/Ahsan
+          - group [ref=e687]:
+            - generic "keyboard_arrow_right 📧 View email — Kate, Discover AI Solutions for Your Practice" [ref=e688] [cursor=pointer]:
+              - generic [ref=e689]:
+                - generic [ref=e691]: keyboard_arrow_right
+                - paragraph [ref=e694]: 📧 View email — Kate, Discover AI Solutions for Your Practice
+          - separator [ref=e699]
+          - generic [ref=e704]:
+            - generic [ref=e705]:
+              - generic [ref=e706]: David Alexander · AUX President · Meritus Health
+              - generic [ref=e707]: ✅ Sent
+            - generic [ref=e708]:
+              - text: "TO:"
+              - code [ref=e709]: m.abdulrehman.shoukat+2@gmail.com
+              - text: "| MSG ID:"
+              - code [ref=e710]: 19eb7ff9d4a065d0
+              - text: "| via:"
+              - code [ref=e711]: Acct1/Ahsan
+          - group [ref=e714]:
+            - generic "keyboard_arrow_right 📧 View email — How AI can boost Meritus Health's efficiency" [ref=e715] [cursor=pointer]:
+              - generic [ref=e716]:
+                - generic [ref=e718]: keyboard_arrow_right
+                - paragraph [ref=e721]: 📧 View email — How AI can boost Meritus Health's efficiency
+          - separator [ref=e726]
+          - generic [ref=e731]:
+            - generic [ref=e732]:
+              - generic [ref=e733]: Michelle Froehlich · Administrator and Managing Director · North Idaho Urology
+              - generic [ref=e734]: ✅ Sent
+            - generic [ref=e735]:
+              - text: "TO:"
+              - code [ref=e736]: m.abdulrehman.shoukat+3@gmail.com
+              - text: "| MSG ID:"
+              - code [ref=e737]: 19eb7ffd423683f6
+              - text: "| via:"
+              - code [ref=e738]: Acct1/Ahsan
+          - group [ref=e741]:
+            - generic "keyboard_arrow_right 📧 View email — AI Solutions to Boost North Idaho Urology's Efficiency" [ref=e742] [cursor=pointer]:
+              - generic [ref=e743]:
+                - generic [ref=e745]: keyboard_arrow_right
+                - paragraph [ref=e748]: 📧 View email — AI Solutions to Boost North Idaho Urology's Efficiency
+          - separator [ref=e753]
+          - generic [ref=e758]:
+            - generic [ref=e759]:
+              - generic [ref=e760]: Ana Hevia · Advanced Registered Nurse Practitiner and Owner · Oscar Hevia, MD
+              - generic [ref=e761]: ✅ Sent
+            - generic [ref=e762]:
+              - text: "TO:"
+              - code [ref=e763]: m.abdulrehman.shoukat+4@gmail.com
+              - text: "| MSG ID:"
+              - code [ref=e764]: 19eb800209f626a4
+              - text: "| via:"
+              - code [ref=e765]: Acct1/Ahsan
+          - group [ref=e768]:
+            - generic "keyboard_arrow_right 📧 View email — Streamline Oscar Hevia, MD's Workflow with AI" [ref=e769] [cursor=pointer]:
+              - generic [ref=e770]:
+                - generic [ref=e772]: keyboard_arrow_right
+                - paragraph [ref=e775]: 📧 View email — Streamline Oscar Hevia, MD's Workflow with AI
+          - separator [ref=e780]

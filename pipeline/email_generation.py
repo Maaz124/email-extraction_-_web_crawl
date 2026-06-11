@@ -4,6 +4,7 @@ Generates personalised cold-outreach emails via OpenAI.
 """
 
 import os
+import re
 from pathlib import Path
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -21,56 +22,49 @@ except FileNotFoundError:
     SENDER_CONTEXT = "(No additional sender context found — digit_context.md missing)"
 
 INTRO = (
-    "I'm reaching out from Digitalytics AI, where we specialize in building AI/ML-driven "
-    "solutions that help organizations unlock value from their data through advanced analytics, "
-    "automation, and intelligent decision systems. Our work spans across domains including "
-    "healthcare, infrastructure, and operations, where we integrate diverse data sources, build "
-    "predictive models, and deploy scalable AI systems to drive efficiency, compliance, and "
-    "smarter decision-making. We focus on delivering practical, production-ready solutions—from "
-    "predictive risk modeling and geospatial analytics to AI-powered automation and intelligent "
-    "reporting—while keeping costs optimized for mid-sized and growing organizations."
+    "At Digitalytics AI, we work with independent medical practices to reduce the "
+    "administrative workload that consumes staff time and leads to delays, errors, "
+    "and operational bottlenecks."
 )
 
+PAIN_POINTS = """\
+- Staff spending valuable hours on repetitive data entry and paperwork
+- Incoming referrals and lab results requiring manual processing
+- Missed or delayed patient calls during busy periods or after hours
+- Front-desk teams juggling scheduling, intake, and follow-up tasks simultaneously
+- Administrative errors that can impact billing, documentation, and patient experience"""
+
+SOLUTIONS = """\
+- Patient call handling, appointment scheduling, rescheduling, and refill requests
+- Referral and lab-result processing directly into the EHR
+- Digital patient intake and registration workflows
+- Appointment reminders, follow-ups, and patient outreach programs"""
+
 SYSTEM_PROMPT = f"""\
-You are an expert B2B outreach specialist writing cold emails on behalf of Digitalytics AI.
+You are writing a cold outreach email on behalf of Digitalytics AI, targeting independent medical practices.
 
-## Sender Company: Digitalytics AI — Full Capability Reference
-Use the following detailed capability document to identify specific, accurate synergies with the prospect's company. Always draw from real capabilities listed here — never invent features.
-
-{SENDER_CONTEXT}
-
----
-
-## Your Goal
-Write a concise, personalized, and genuine cold email that:
-1. Opens with the Digitalytics AI intro paragraph (provided in the user prompt) — use it close to verbatim as the opening. You may trim slightly for flow but do not rephrase core points.
-2. Identifies 1-2 specific, realistic synergies between Digitalytics capabilities (from the reference above) and the prospect's company/role. Reference specific details from the prospect's context (client names, services, growth stats) to make the synergy feel earned, not generic. If the prospect's domain doesn't map directly, pivot to the most adjacent capability and frame it around the underlying data/automation problem their business likely faces.
-3. Frames the synergy based on the prospect's title — C-suite (CEO, COO, CMO): lead with business outcomes (revenue, efficiency, growth); technical roles (CTO, engineer, data lead): lead with capabilities and implementation.
-4. Is short (under 200 words body), professional, and human — no buzzword soup.
-
-## Email Structure (follow exactly)
-1. Greeting — first name only (e.g. "Hi Sarah,")
-2. Hook — 1 sentence referencing something specific about the prospect's company or work (not a compliment — a concrete observation proving the email is written for them)
-3. Intro — Digitalytics AI (1 short paragraph, use the provided intro text)
-4. Synergy — 1-2 specific connections to their role/company (1-2 sentences each), drawn from the capability reference above
-5. Soft CTA — include the actual Calendly URL with natural phrasing (e.g. "book a quick call here: [url]")
-6. Sign-off — end with exactly this signature, no variations:
-
-Ahsan Ahmad
-Founder, Digitalytics AI
-https://www.digitalytics.ai
+## Email Structure (follow exactly, in this order)
+1. Greeting — use the exact greeting string provided in the user message. Do not modify it.
+2. One warm opener sentence — brief and genuine. Do NOT use "I hope this email finds you well", "I came across your website", or any similar filler.
+3. Intro sentence — use the INTRO text close to verbatim: "{INTRO}"
+4. Pain points intro line (e.g. "Many practices we speak with are navigating challenges like:") followed by this exact bullet list:
+{PAIN_POINTS}
+5. Solutions intro line (e.g. "To address this, we've built AI-driven workflows that handle:") followed by this exact bullet list:
+{SOLUTIONS}
+6. Value prop sentence (use verbatim): "The goal isn't simply automation — it is helping clinics operate more efficiently, reducing administrative burden, improving accuracy, and allowing staff to focus more on patient care."
+7. Personalized closing (1-2 sentences): Reference something specific from the crawled website data about this practice — their specialty, patient focus, size, services, or stated goals. If the crawled data is sparse, pivot to a genuine observation about the challenges their specialty typically faces. Make it feel written for them specifically.
+8. Video demo offer (use verbatim): "We've also put together a short video demonstration that shows several of these workflows in action. If you'd like, I'd be happy to send it over for a quick look."
+9. Discovery close (use verbatim): "If any of these challenges sound familiar, I'd welcome the opportunity to learn more about your practice."
+10. Sign-off: "Best regards," — nothing after this line.
 
 ## Rules
-- Never say "I hope this email finds you well" or similar filler
-- Do not over-promise or use hype language
-- Write synergies in active, direct language — "we can" not "could be leveraged"
-- State the outcome, not the possibility
-- Never use the literal words "Calendly link" — embed the URL naturally
-- Use transition words naturally between sections to ensure smooth, logical flow throughout the email
+- Do NOT include any Calendly URL or link anywhere in the body
+- Do NOT add any name, title, or website after "Best regards," — the HTML footer handles this
+- Do NOT paraphrase, reorder, or omit any bullet items from the pain points or solutions lists
+- Do NOT use filler openers ("I hope you're doing well", "I came across your website")
+- Keep the total body under 220 words
 - Output ONLY the email body (no subject line, no metadata)
 """
-
-CALENDLY_LINK = "https://calendly.com/ahsan-ahmad-digitalytics/30min"
 
 
 def generate_email(
@@ -80,29 +74,23 @@ def generate_email(
     content: str,
     company_name: str,
     sender_name: str = "Digitalytics AI Team",
+    greeting: str = "",
 ) -> str:
     """Return the AI-generated email body as a string."""
     first_name = name.strip().split()[0]
+    resolved_greeting = greeting if greeting else f"Hi Dr. {first_name},"
     user_prompt = f"""\
-Write a cold outreach email for the following prospect:
+Write a clinic-targeted cold outreach email for the following prospect:
 
 Name: {name}
 Title: {title}
-Company: {company_name}
-Additional context about them or their company: {content}
-Calendly Link: {CALENDLY_LINK}
-Sender Name: {sender_name}
+Practice / Company: {company_name}
+Crawled website context (use for the personalized closing paragraph): {content}
 
-Digitalytics intro (use this as the opening paragraph):
-\"\"\"{INTRO}\"\"\"
-
-Address them as {first_name}. End with exactly this signature (no changes):
-
-Ahsan Ahmad
-Founder, Digitalytics AI
-https://www.digitalytics.ai
-The total email body (including intro) must be under 200 words.
-If over, trim from the synergy section — never cut the intro or the CTA.
+Follow the email structure from the system prompt exactly.
+Use this exact greeting: "{resolved_greeting}"
+End the email with "Best regards," and nothing else after it.
+Total body must be under 220 words.
 Output only the email body."""
 
     response = client.chat.completions.create(
@@ -120,7 +108,9 @@ Output only the email body."""
         f"output tokens: {usage.completion_tokens}, "
         f"total: {usage.total_tokens}"
     )
-    return response.choices[0].message.content.strip()
+    body = response.choices[0].message.content.strip()
+    body = re.sub(r'(?i)(best regards,).*', r'\1', body, flags=re.DOTALL).strip()
+    return body
 
 
 def generate_subject(body: str, name: str, company_name: str) -> str:

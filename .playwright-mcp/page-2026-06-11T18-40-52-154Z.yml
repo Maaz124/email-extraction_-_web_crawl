@@ -1,0 +1,272 @@
+- generic [ref=e2]:
+  - generic [ref=e11]:
+    - heading "✉️ Cold Outreach" [level=2] [ref=e16]
+    - paragraph [ref=e21]:
+      - strong [ref=e22]: Digitalytics AI
+      - text: · Automated Pipeline
+    - separator [ref=e27]
+    - generic [ref=e32]:
+      - generic [ref=e33]: "1"
+      - generic [ref=e34]: Configure & Upload
+    - generic [ref=e39]:
+      - generic [ref=e40]: "2"
+      - generic [ref=e41]: Run Pipeline
+    - generic [ref=e46]:
+      - generic [ref=e47]: "3"
+      - generic [ref=e48]: Review & Send
+    - separator [ref=e53]
+    - heading "📋 Activity Log" [level=3] [ref=e412]
+    - generic [ref=e417]:
+      - generic [ref=e418]: "[23:32:45] Loaded 3 domains"
+      - generic [ref=e421]: "[23:36:54] Loaded 5 domains"
+      - generic [ref=e485]: "[23:37:19] Confirmed 5 active domains"
+  - generic [ref=e3]:
+    - banner [ref=e56]:
+      - generic [ref=e59]:
+        - generic [ref=e776]:
+          - generic [ref=e778]: info
+          - generic [ref=e779]: File change.
+          - button "Rerun" [ref=e781] [cursor=pointer]:
+            - generic [ref=e782]: Rerun
+          - button "Always rerun" [ref=e784] [cursor=pointer]:
+            - generic [ref=e785]: Always rerun
+        - button "Main menu" [ref=e65] [cursor=pointer]:
+          - img [ref=e66]
+    - generic [ref=e69]:
+      - generic [ref=e74]:
+        - heading "Cold Outreach Pipeline" [level=1] [ref=e76]:
+          - text: Cold Outreach Pipeline
+          - generic [ref=e77]:
+            - link "Link to heading":
+              - /url: "#cold-outreach-pipeline"
+              - img
+        - paragraph [ref=e78]: Configure · Run · Review · Send — fully automated
+      - generic [ref=e80]:
+        - generic [ref=e87]:
+          - generic [ref=e88]: "5"
+          - generic [ref=e89]: Active Domains
+        - generic [ref=e96]:
+          - generic [ref=e97]: "0"
+          - generic [ref=e98]: Contacts
+        - generic [ref=e105]:
+          - generic [ref=e106]: "0"
+          - generic [ref=e107]: Crawled Sites
+        - generic [ref=e114]:
+          - generic [ref=e115]: "0"
+          - generic [ref=e116]: Emails Sent
+      - group [ref=e123]:
+        - generic "keyboard_arrow_right Step 1 — Configure & Upload Companies" [ref=e494] [cursor=pointer]:
+          - generic [ref=e125]:
+            - generic [ref=e496]: keyboard_arrow_right
+            - paragraph [ref=e130]:
+              - strong [ref=e131]: Step 1 — Configure & Upload Companies
+      - group [ref=e179]:
+        - generic "keyboard_arrow_down Step 2 — Run Pipeline" [ref=e433] [cursor=pointer]:
+          - generic [ref=e181]:
+            - generic [ref=e435]: keyboard_arrow_down
+            - paragraph [ref=e186]:
+              - strong [ref=e187]: Step 2 — Run Pipeline
+        - generic [ref=e437]:
+          - generic [ref=e442]:
+            - generic [ref=e443]: "2"
+            - text: Extract contacts · Crawl websites · Generate emails
+          - paragraph [ref=e448]:
+            - text: Ready to process
+            - strong [ref=e449]: "5"
+            - text: domain(s),
+            - strong [ref=e450]: "3"
+            - text: contact(s) per company.
+          - alert [ref=e453]:
+            - generic [ref=e456]:
+              - generic [ref=e459]: 📊
+              - generic [ref=e460]:
+                - paragraph [ref=e461]:
+                  - strong [ref=e462]: "Account 1 (Ahsan):"
+                  - text: 0 / 20
+                - paragraph [ref=e463]:
+                  - text: 📊
+                  - strong [ref=e464]: "Account 2 (Abdullah):"
+                  - text: 0 / 20
+                - paragraph [ref=e465]: ─────────────────────────────────
+                - paragraph [ref=e466]:
+                  - strong [ref=e467]: "Total:"
+                  - text: 0 / 40 —
+                  - strong [ref=e468]: 40 remaining
+          - button "▶ Run Full Pipeline" [ref=e471] [cursor=pointer]:
+            - paragraph [ref=e475]: ▶ Run Full Pipeline
+          - generic [ref=e477]:
+            - paragraph [ref=e480]: All domains complete ✓
+            - progressbar "100% Loaded" [ref=e526]
+          - generic [ref=e505]:
+            - generic [ref=e506]:
+              - text: "[23:38:18]"
+              - generic [ref=e527]: "❌ Crawl failed: 'charmap' codec can't encode character '\\u2192' in position 11: character maps to *** You may need to add PYTHONIOENCODING=utf-8 to your environment ***"
+            - generic [ref=e507]: "[23:38:18] ⚡ [C] Generating 1 email(s)…"
+            - generic [ref=e508]: "[23:38:18] Generating for Kate Gassaway (APRN-BC Nurse Practitioner and Founder)…"
+            - generic [ref=e509]: "[23:38:26] ✓ Draft ready → Kate Gassaway"
+            - generic [ref=e510]: "[23:38:26] ⚡ [D] Sending 1 email(s)…"
+            - generic [ref=e511]: "[23:38:29] ✅ [Acct1/Ahsan] Sent → m.abdulrehman.shoukat+1@gmail.com (ID: 19eb7fa8569b0d01)"
+            - generic [ref=e512]: "[23:38:29] 📝 solutionsmedicalcenter.com marked as emailed"
+            - generic [ref=e513]: "[23:38:29] ✅ solutionsmedicalcenter.com: 1/1 sent"
+            - generic [ref=e514]: "[23:38:29] ────────────────────────────────────────────────"
+            - generic [ref=e515]: "[23:38:29] 📌 Domain 2/5: meritushealth.com"
+            - generic [ref=e517]: "[23:38:29] ────────────────────────────────────────────────"
+            - generic [ref=e518]: "[23:38:29] ⚡ [A] Extracting contacts…"
+            - generic [ref=e524]: "[23:38:29] ❌ Extraction failed: dict contains fields not in fieldnames: 'greeting'"
+            - generic [ref=e525]: "[23:38:29] ⚡ [B] Crawling meritushealth.com…"
+            - generic [ref=e528]:
+              - text: "[23:38:31]"
+              - generic [ref=e529]: "❌ Crawl failed: 'charmap' codec can't encode character '\\u2192' in position 11: character maps to *** You may need to add PYTHONIOENCODING=utf-8 to your environment ***"
+            - generic [ref=e530]: "[23:38:31] ⚡ [C] Generating 1 email(s)…"
+            - generic [ref=e531]: "[23:38:31] Generating for David Alexander (AUX President)…"
+            - generic [ref=e532]: "[23:38:35] ✓ Draft ready → David Alexander"
+            - generic [ref=e533]: "[23:38:35] ⚡ [D] Sending 1 email(s)…"
+            - generic [ref=e534]: "[23:38:35] ✅ [Acct1/Ahsan] Sent → m.abdulrehman.shoukat+2@gmail.com (ID: 19eb7fa9fc0c5309)"
+            - generic [ref=e535]: "[23:38:35] 📝 meritushealth.com marked as emailed"
+            - generic [ref=e536]: "[23:38:35] ✅ meritushealth.com: 1/1 sent"
+            - generic [ref=e537]: "[23:38:35] ────────────────────────────────────────────────"
+            - generic [ref=e538]: "[23:38:35] 📌 Domain 3/5: niurology.com"
+            - generic [ref=e539]: "[23:38:35] ────────────────────────────────────────────────"
+            - generic [ref=e540]: "[23:38:35] ⚡ [A] Extracting contacts…"
+            - generic [ref=e541]: "[23:38:35] ❌ Extraction failed: dict contains fields not in fieldnames: 'greeting'"
+            - generic [ref=e542]: "[23:38:35] ⚡ [B] Crawling niurology.com…"
+            - generic [ref=e543]:
+              - text: "[23:38:37]"
+              - generic [ref=e544]: "❌ Crawl failed: 'charmap' codec can't encode character '\\u2192' in position 11: character maps to *** You may need to add PYTHONIOENCODING=utf-8 to your environment ***"
+            - generic [ref=e545]: "[23:38:37] ⚡ [C] Generating 1 email(s)…"
+            - generic [ref=e546]: "[23:38:37] Generating for Michelle Froehlich (Administrator and Managing Director)…"
+            - generic [ref=e547]: "[23:38:42] ✓ Draft ready → Michelle Froehlich"
+            - generic [ref=e548]: "[23:38:42] ⚡ [D] Sending 1 email(s)…"
+            - generic [ref=e549]: "[23:38:42] ✅ [Acct1/Ahsan] Sent → m.abdulrehman.shoukat+3@gmail.com (ID: 19eb7fabacb882af)"
+            - generic [ref=e550]: "[23:38:42] 📝 niurology.com marked as emailed"
+            - generic [ref=e551]: "[23:38:42] ✅ niurology.com: 1/1 sent"
+            - generic [ref=e552]: "[23:38:42] ────────────────────────────────────────────────"
+            - generic [ref=e553]: "[23:38:42] 📌 Domain 4/5: oscarheviamd.com"
+            - generic [ref=e554]: "[23:38:42] ────────────────────────────────────────────────"
+            - generic [ref=e555]: "[23:38:42] ⚡ [A] Extracting contacts…"
+            - generic [ref=e556]: "[23:38:42] ❌ Extraction failed: dict contains fields not in fieldnames: 'greeting'"
+            - generic [ref=e557]: "[23:38:42] ⚡ [B] Crawling oscarheviamd.com…"
+            - generic [ref=e558]:
+              - text: "[23:38:44]"
+              - generic [ref=e559]: "❌ Crawl failed: 'charmap' codec can't encode character '\\u2192' in position 11: character maps to *** You may need to add PYTHONIOENCODING=utf-8 to your environment ***"
+            - generic [ref=e560]: "[23:38:44] ⚡ [C] Generating 1 email(s)…"
+            - generic [ref=e561]: "[23:38:44] Generating for Ana Hevia (Advanced Registered Nurse Practitiner and Owner)…"
+            - generic [ref=e562]: "[23:38:48] ✓ Draft ready → Ana Hevia"
+            - generic [ref=e563]: "[23:38:48] ⚡ [D] Sending 1 email(s)…"
+            - generic [ref=e564]: "[23:38:49] ✅ [Acct1/Ahsan] Sent → m.abdulrehman.shoukat+4@gmail.com (ID: 19eb7fad4b542672)"
+            - generic [ref=e565]: "[23:38:49] 📝 oscarheviamd.com marked as emailed"
+            - generic [ref=e566]: "[23:38:49] ✅ oscarheviamd.com: 1/1 sent"
+            - generic [ref=e567]: "[23:38:49] ────────────────────────────────────────────────"
+            - generic [ref=e568]: "[23:38:49] 📌 Domain 5/5: wellmedica.com"
+            - generic [ref=e569]: "[23:38:49] ────────────────────────────────────────────────"
+            - generic [ref=e570]: "[23:38:49] ⚡ [A] Extracting contacts…"
+            - generic [ref=e571]: "[23:38:49] ❌ Extraction failed: dict contains fields not in fieldnames: 'greeting'"
+            - generic [ref=e572]: "[23:38:49] ⏭️ [B] Skipping crawl for wellmedica.com (0 contacts found)"
+            - generic [ref=e573]: "[23:38:49] ⚡ [C] Generating 0 email(s)…"
+            - generic [ref=e574]: "[23:38:49] ⚡ [D] Sending 0 email(s)…"
+            - generic [ref=e575]: "[23:38:49] ✅ wellmedica.com: 0/0 sent"
+            - generic [ref=e576]: "[23:38:49] 🎉 Pipeline complete — 4 email(s) sent across 5 domain(s)!"
+          - alert [ref=e579]:
+            - generic [ref=e582]:
+              - generic [ref=e585]: ✅
+              - paragraph [ref=e587]: Done — 4 emails sent!
+          - separator [ref=e592]
+          - generic [ref=e594]:
+            - generic [ref=e601]:
+              - generic [ref=e602]: "4"
+              - generic [ref=e603]: Contacts Extracted
+            - generic [ref=e610]:
+              - generic [ref=e611]: "0"
+              - generic [ref=e612]: Sites Crawled
+            - generic [ref=e619]:
+              - generic [ref=e620]: "4"
+              - generic [ref=e621]: Emails Sent
+      - group [ref=e190]:
+        - generic "keyboard_arrow_down Step 3 — Sent Emails" [ref=e622] [cursor=pointer]:
+          - generic [ref=e192]:
+            - generic [ref=e624]: keyboard_arrow_down
+            - paragraph [ref=e197]:
+              - strong [ref=e198]: Step 3 — Sent Emails
+        - generic [ref=e626]:
+          - generic [ref=e631]:
+            - generic [ref=e632]: "3"
+            - text: Sent email history
+          - generic [ref=e634]:
+            - generic [ref=e641]:
+              - generic [ref=e642]: "4"
+              - generic [ref=e643]: ✅ Sent
+            - generic [ref=e650]:
+              - generic [ref=e651]: "0"
+              - generic [ref=e652]: ❌ Failed
+            - generic [ref=e659]:
+              - generic [ref=e660]: "0"
+              - generic [ref=e661]: ⏳ Pending
+          - separator [ref=e666]
+          - generic [ref=e671]:
+            - generic [ref=e672]:
+              - generic [ref=e673]: Kate Gassaway · APRN-BC Nurse Practitioner and Founder · Solutions Medical Center
+              - generic [ref=e674]: ✅ Sent
+            - generic [ref=e675]:
+              - text: "TO:"
+              - code [ref=e676]: m.abdulrehman.shoukat+1@gmail.com
+              - text: "| MSG ID:"
+              - code [ref=e677]: 19eb7fa8569b0d01
+              - text: "| via:"
+              - code [ref=e678]: Acct1/Ahsan
+          - group [ref=e681]:
+            - generic "keyboard_arrow_right 📧 View email — Streamline Solutions Medical Center's Workflow with AI" [ref=e682] [cursor=pointer]:
+              - generic [ref=e683]:
+                - generic [ref=e685]: keyboard_arrow_right
+                - paragraph [ref=e688]: 📧 View email — Streamline Solutions Medical Center's Workflow with AI
+          - separator [ref=e693]
+          - generic [ref=e698]:
+            - generic [ref=e699]:
+              - generic [ref=e700]: David Alexander · AUX President · Meritus Health
+              - generic [ref=e701]: ✅ Sent
+            - generic [ref=e702]:
+              - text: "TO:"
+              - code [ref=e703]: m.abdulrehman.shoukat+2@gmail.com
+              - text: "| MSG ID:"
+              - code [ref=e704]: 19eb7fa9fc0c5309
+              - text: "| via:"
+              - code [ref=e705]: Acct1/Ahsan
+          - group [ref=e708]:
+            - generic "keyboard_arrow_right 📧 View email — How AI Workflows Can Transform Meritus Health" [ref=e709] [cursor=pointer]:
+              - generic [ref=e710]:
+                - generic [ref=e712]: keyboard_arrow_right
+                - paragraph [ref=e715]: 📧 View email — How AI Workflows Can Transform Meritus Health
+          - separator [ref=e720]
+          - generic [ref=e725]:
+            - generic [ref=e726]:
+              - generic [ref=e727]: Michelle Froehlich · Administrator and Managing Director · North Idaho Urology
+              - generic [ref=e728]: ✅ Sent
+            - generic [ref=e729]:
+              - text: "TO:"
+              - code [ref=e730]: m.abdulrehman.shoukat+3@gmail.com
+              - text: "| MSG ID:"
+              - code [ref=e731]: 19eb7fabacb882af
+              - text: "| via:"
+              - code [ref=e732]: Acct1/Ahsan
+          - group [ref=e735]:
+            - generic "keyboard_arrow_right 📧 View email — Michelle, curious about AI solutions for Urology?" [ref=e736] [cursor=pointer]:
+              - generic [ref=e737]:
+                - generic [ref=e739]: keyboard_arrow_right
+                - paragraph [ref=e742]: 📧 View email — Michelle, curious about AI solutions for Urology?
+          - separator [ref=e747]
+          - generic [ref=e752]:
+            - generic [ref=e753]:
+              - generic [ref=e754]: Ana Hevia · Advanced Registered Nurse Practitiner and Owner · Oscar Hevia, MD
+              - generic [ref=e755]: ✅ Sent
+            - generic [ref=e756]:
+              - text: "TO:"
+              - code [ref=e757]: m.abdulrehman.shoukat+4@gmail.com
+              - text: "| MSG ID:"
+              - code [ref=e758]: 19eb7fad4b542672
+              - text: "| via:"
+              - code [ref=e759]: Acct1/Ahsan
+          - group [ref=e762]:
+            - generic "keyboard_arrow_right 📧 View email — Ana, discover AI solutions for Oscar Hevia, MD" [ref=e763] [cursor=pointer]:
+              - generic [ref=e764]:
+                - generic [ref=e766]: keyboard_arrow_right
+                - paragraph [ref=e769]: 📧 View email — Ana, discover AI solutions for Oscar Hevia, MD
+          - separator [ref=e774]

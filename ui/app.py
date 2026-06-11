@@ -25,6 +25,7 @@ import logging
 import traceback
 from io import StringIO
 from datetime import datetime
+import json
 
 import streamlit as st
 
@@ -127,6 +128,12 @@ TEST_EMAIL       = "maaz.ahmad1862@gmail.com"
 DATA_DIR         = PROJECT_ROOT / "data"
 EMAILED_LOG_PATH = PROJECT_ROOT / "data" / "emailed_log.csv"
 LOGS_DIR         = PROJECT_ROOT / "logs"
+ACCOUNT1_LIMIT   = 20
+ACCOUNT2_LIMIT   = 20
+DAILY_LIMIT      = ACCOUNT1_LIMIT + ACCOUNT2_LIMIT   # 40
+TOKEN_FILE_ACCT1 = PROJECT_ROOT / "token.json"
+TOKEN_FILE_ACCT2 = PROJECT_ROOT / "token2.json"
+RATE_LIMIT_PATH  = PROJECT_ROOT / "data" / "rate_limit.json"
 
 def _root(filename: str) -> str:
     return str(PROJECT_ROOT / filename)
@@ -161,7 +168,7 @@ def load_csv(filepath: str) -> list[dict]:
 
 def save_csv(filepath: str, rows: list[dict], fieldnames: list[str]) -> None:
     with open(filepath, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)
 
@@ -199,6 +206,41 @@ def mark_domain_emailed(domain: str) -> None:
         if not file_exists:
             writer.writeheader()
         writer.writerow({"domain": domain, "emailed_at": time.strftime("%Y-%m-%d %H:%M:%S")})
+
+# ─── Rate-limit helpers ───────────────────────────────────────────────────────
+def load_rate_limit() -> dict:
+    """Return {date, account1_sent, account2_sent}, auto-resetting on date change.
+    Migrates legacy 'sent_today' schema transparently."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    if RATE_LIMIT_PATH.exists():
+        try:
+            data = json.loads(RATE_LIMIT_PATH.read_text())
+            if data.get("date") == today:
+                # Migrate old schema: sent_today → account1_sent + account2_sent
+                if "sent_today" in data and "account1_sent" not in data:
+                    legacy = int(data["sent_today"])
+                    data["account1_sent"] = min(legacy, ACCOUNT1_LIMIT)
+                    data["account2_sent"] = max(0, legacy - ACCOUNT1_LIMIT)
+                    del data["sent_today"]
+                    save_rate_limit(data)
+                return data
+        except Exception:
+            pass
+    return {"date": today, "account1_sent": 0, "account2_sent": 0}
+
+def save_rate_limit(data: dict) -> None:
+    DATA_DIR.mkdir(exist_ok=True)
+    RATE_LIMIT_PATH.write_text(json.dumps(data, indent=2))
+
+def increment_rate_limit(account: int) -> tuple:
+    """Increment account counter (1 or 2), persist, return (account1_sent, account2_sent)."""
+    data = load_rate_limit()
+    if account == 1:
+        data["account1_sent"] += 1
+    else:
+        data["account2_sent"] += 1
+    save_rate_limit(data)
+    return data["account1_sent"], data["account2_sent"]
 
 # ─── Session State ────────────────────────────────────────────────────────────
 _emailed_on_startup = load_emailed_log()
@@ -466,6 +508,22 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
             f"**{emails_per_co}** contact(s) per company."
         )
 
+        _rl = load_rate_limit()
+        _a1 = _rl["account1_sent"]
+        _a2 = _rl["account2_sent"]
+        _total = _a1 + _a2
+        _remaining = max(0, DAILY_LIMIT - _total)
+        st.info(
+            f"📊 **Account 1 (Ahsan):** {_a1} / {ACCOUNT1_LIMIT}\n\n"
+            f"📊 **Account 2 (Abdullah):** {_a2} / {ACCOUNT2_LIMIT}\n\n"
+            f"─────────────────────────────────\n\n"
+            f"**Total:** {_total} / {DAILY_LIMIT} — **{_remaining} remaining**"
+        )
+        if _total >= DAILY_LIMIT:
+            st.error("🚫 Both accounts at limit. Come back tomorrow.")
+        elif _a1 >= ACCOUNT1_LIMIT:
+            st.warning("⚠️ Account 1 full — using Account 2 for remaining sends.")
+
         run_btn = st.button("▶ Run Full Pipeline", key="btn_run_pipeline")
 
         # ── Live progress & log placeholders ──────────────────────────────────
@@ -513,16 +571,26 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
                 def flush(self): self.orig.flush()
                 def isatty(self): return False
 
-            # Init Gmail once for the whole run
-            _live("🔌 Initialising Gmail service…")
-            svc = None
+            # Init Gmail once for the whole run (account1 = soft fail, account2 = hard stop)
+            _live("🔌 Initialising Gmail services…")
+            svc1 = None
             try:
-                svc = get_gmail_service()
-                _live("✅ Gmail ready", "success")
+                svc1 = get_gmail_service(token_file=str(TOKEN_FILE_ACCT1))
+                _live("✅ Gmail Account 1 (Ahsan) ready", "success")
             except Exception as exc:
-                log_exc("Gmail init failed", exc)
-                _live(f"❌ Gmail init failed: {exc or type(exc).__name__}", "warning")
-                st.error(f"Gmail init failed: {exc or type(exc).__name__} — see logs/pipeline.log")
+                log_exc("Gmail Account 1 init failed", exc)
+                _live(f"❌ Gmail Account 1 init failed: {exc or type(exc).__name__}", "warning")
+                st.error(f"Gmail Account 1 init failed: {exc or type(exc).__name__} — see logs/pipeline.log")
+
+            svc2 = None
+            try:
+                svc2 = get_gmail_service(token_file=str(TOKEN_FILE_ACCT2))
+                _live("✅ Gmail Account 2 (Abdullah) ready", "success")
+            except Exception as exc:
+                log_exc("Gmail Account 2 init failed", exc)
+                _live(f"❌ Gmail Account 2 init failed: {exc or type(exc).__name__}", "warning")
+                st.error(f"Gmail Account 2 (token2.json) failed to authenticate. Cannot continue.")
+                st.stop()
 
             grand_sent   = 0
             grand_errors: list[str] = []
@@ -614,17 +682,19 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
                            or st.session_state.crawled.get(domain, "No additional context available."))
                 domain_email_keys: list[str] = []
                 for ci, c in enumerate(domain_contacts):
-                    name    = c.get("name", "")
-                    title   = c.get("title", "")
-                    email   = c.get("email", "")
-                    company = c.get("company", domain)
+                    name     = c.get("name", "")
+                    title    = c.get("title", "")
+                    email    = c.get("email", "")
+                    company  = c.get("company", domain)
+                    greeting = c.get("greeting", "")
                     progress_bar.progress(
                         b + w*(0.50 + 0.25*ci/max(len(domain_contacts), 1)),
                         text=f"[{d_idx+1}/{total_domains}] C — {name}…")
                     _live(f"   Generating for {name} ({title})…")
                     try:
                         body    = generate_email(name=name, email=email, title=title,
-                                                 content=context, company_name=company)
+                                                 content=context, company_name=company,
+                                                 greeting=greeting)
                         subject = generate_subject(body, name, company)
                         st.session_state.generated_emails[email] = {
                             "subject": subject, "body": body, "approved": True,
@@ -643,26 +713,55 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
                 # ── D) Send ───────────────────────────────────────────────────
                 _live(f"   ⚡ [D] Sending {len(domain_email_keys)} email(s)…")
                 domain_sent = 0
-                if svc:
+                _limit_hit = False
+                if svc1 or svc2:
                     for ei, email_key in enumerate(domain_email_keys):
+                        _rl_check = load_rate_limit()
+                        _a1_sent = _rl_check["account1_sent"]
+                        _a2_sent = _rl_check["account2_sent"]
+                        if _a1_sent + _a2_sent >= DAILY_LIMIT:
+                            _live(f"🚫 Daily limit reached ({DAILY_LIMIT}/{DAILY_LIMIT}) — stopping sends.", "warning")
+                            st.warning(f"Daily limit reached for both accounts. Remaining emails skipped. Re-run tomorrow.")
+                            _limit_hit = True
+                            break
+                        # Pick active account
+                        if _a1_sent < ACCOUNT1_LIMIT and svc1:
+                            active_svc = svc1
+                            active_acct = 1
+                            sender_key = "account1"
+                            acct_label = "Acct1/Ahsan"
+                        else:
+                            active_svc = svc2
+                            active_acct = 2
+                            sender_key = "account2"
+                            acct_label = "Acct2/Abdullah"
                         data_e = st.session_state.generated_emails[email_key]
                         progress_bar.progress(
                             b + w*(0.75 + 0.25*ei/max(len(domain_email_keys), 1)),
                             text=f"[{d_idx+1}/{total_domains}] D — sending to {email_key}…")
                         try:
                             msg_id = send_email(
-                                svc, to=email_key,
+                                active_svc, to=email_key,
                                 subject=data_e["subject"], body=data_e["body"],
                                 attachment_bytes=att["bytes"] if att else None,
                                 attachment_name=att["name"]   if att else "portfolio.pdf",
+                                sender_key=sender_key,
                             )
                             st.session_state.generated_emails[email_key].update(
-                                {"sent": True, "msg_id": msg_id})
-                            _live(f"   ✅ Sent → {email_key}  (ID: {msg_id})", "success")
-                            log(f"Sent {data_e['name']} ({email_key}) → {msg_id}", "success")
+                                {"sent": True, "msg_id": msg_id, "sent_by": acct_label})
+                            _live(f"   ✅ [{acct_label}] Sent → {email_key}  (ID: {msg_id})", "success")
+                            log(f"[{acct_label}] Sent {data_e['name']} ({email_key}) → {msg_id}", "success")
                             grand_sent  += 1
                             domain_sent += 1
+                            increment_rate_limit(active_acct)
                         except Exception as exc:
+                            if active_acct == 2:
+                                log_exc(f"Account 2 send failed for {email_key}", exc)
+                                st.session_state.generated_emails[email_key]["send_error"] = str(exc)
+                                grand_errors.append(f"Send {email_key}: {exc}")
+                                st.error(f"Account 2 (Abdullah) send failed: {exc or type(exc).__name__} — stopping pipeline.")
+                                _limit_hit = True
+                                break
                             log_exc(f"Send failed for {email_key}", exc)
                             st.session_state.generated_emails[email_key]["send_error"] = str(exc)
                             grand_errors.append(f"Send {email_key}: {exc}")
@@ -679,6 +778,9 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
 
                 progress_bar.progress(b + w*1.0, text=f"[{d_idx+1}/{total_domains}] ✓ complete")
                 _live(f"✅ {domain}: {domain_sent}/{len(domain_email_keys)} sent")
+
+                if _limit_hit:
+                    break
 
             # ── All domains done ──────────────────────────────────────────────
             progress_bar.progress(1.0, text="All domains complete ✓")
@@ -748,6 +850,7 @@ with st.expander("**Step 3 — Sent Emails**", expanded=(st.session_state.step =
                 <div style='font-size:12px;color:#94a3b8;'>
                     TO: <code style='color:#818cf8;'>{real_email}</code>
                     &nbsp;|&nbsp; MSG ID: <code style='color:#475569;'>{data.get('msg_id') or data.get('send_error') or '—'}</code>
+                    {f"&nbsp;|&nbsp; via: <code style='color:#a78bfa;'>{data['sent_by']}</code>" if data.get('sent_by') else ""}
                 </div>
                 </div>""",
                 unsafe_allow_html=True)

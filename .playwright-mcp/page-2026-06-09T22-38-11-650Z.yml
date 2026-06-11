@@ -1,0 +1,120 @@
+- generic [ref=e2]:
+  - generic [ref=e11]:
+    - heading "✉️ Cold Outreach" [level=2] [ref=e16]
+    - paragraph [ref=e21]:
+      - strong [ref=e22]: Digitalytics AI
+      - text: · Automated Pipeline
+    - separator [ref=e27]
+    - generic [ref=e32]:
+      - generic [ref=e33]: "1"
+      - generic [ref=e34]: Configure & Upload
+    - generic [ref=e39]:
+      - generic [ref=e40]: "2"
+      - generic [ref=e41]: Run Pipeline
+    - generic [ref=e46]:
+      - generic [ref=e47]: "3"
+      - generic [ref=e48]: Review & Send
+    - separator [ref=e53]
+    - heading "📋 Activity Log" [level=3] [ref=e356]
+    - generic [ref=e361]:
+      - generic [ref=e362]: "[03:36:57] Loaded 1 domains"
+      - generic [ref=e426]: "[03:37:29] Confirmed 1 active domains"
+  - generic [ref=e3]:
+    - banner [ref=e56]:
+      - generic [ref=e59]:
+        - generic [ref=e428]:
+          - img "Running..." [ref=e429]:
+            - img [ref=e430]
+          - button "Stop" [ref=e435] [cursor=pointer]
+        - button "Deploy" [ref=e61] [cursor=pointer]:
+          - generic [ref=e63]: Deploy
+        - button "Main menu" [ref=e65] [cursor=pointer]:
+          - img [ref=e66]
+    - generic [ref=e69]:
+      - generic [ref=e74]:
+        - heading "Cold Outreach Pipeline" [level=1] [ref=e76]:
+          - text: Cold Outreach Pipeline
+          - generic [ref=e77]:
+            - link "Link to heading":
+              - /url: "#cold-outreach-pipeline"
+              - img
+        - paragraph [ref=e78]: Configure · Run · Review · Send — fully automated
+      - generic [ref=e80]:
+        - generic [ref=e87]:
+          - generic [ref=e88]: "1"
+          - generic [ref=e89]: Active Domains
+        - generic [ref=e96]:
+          - generic [ref=e97]: "0"
+          - generic [ref=e98]: Contacts
+        - generic [ref=e105]:
+          - generic [ref=e106]: "0"
+          - generic [ref=e107]: Crawled Sites
+        - generic [ref=e114]:
+          - generic [ref=e115]: "0"
+          - generic [ref=e116]: Emails Sent
+      - group [ref=e123]:
+        - generic "keyboard_arrow_right Step 1 — Configure & Upload Companies" [ref=e436] [cursor=pointer]:
+          - generic [ref=e125]:
+            - generic [ref=e438]: keyboard_arrow_right
+            - paragraph [ref=e130]:
+              - strong [ref=e131]: Step 1 — Configure & Upload Companies
+      - group [ref=e179]:
+        - generic "keyboard_arrow_down Step 2 — Run Pipeline" [ref=e374] [cursor=pointer]:
+          - generic [ref=e181]:
+            - generic [ref=e376]: keyboard_arrow_down
+            - paragraph [ref=e186]:
+              - strong [ref=e187]: Step 2 — Run Pipeline
+        - generic [ref=e378]:
+          - generic [ref=e383]:
+            - generic [ref=e384]: "2"
+            - text: Extract contacts · Crawl websites · Generate emails
+          - paragraph [ref=e389]:
+            - text: Ready to process
+            - strong [ref=e390]: "1"
+            - text: domain(s),
+            - strong [ref=e391]: "3"
+            - text: contact(s) per company.
+          - alert [ref=e394]:
+            - generic [ref=e397]:
+              - generic [ref=e400]: 📊
+              - generic [ref=e401]:
+                - paragraph [ref=e402]:
+                  - strong [ref=e403]: "Account 1 (Ahsan):"
+                  - text: 19 / 20
+                - paragraph [ref=e404]:
+                  - text: 📊
+                  - strong [ref=e405]: "Account 2 (Abdullah):"
+                  - text: 19 / 20
+                - paragraph [ref=e406]: ─────────────────────────────────
+                - paragraph [ref=e407]:
+                  - strong [ref=e408]: "Total:"
+                  - text: 38 / 40 —
+                  - strong [ref=e409]: 2 remaining
+          - button "▶ Run Full Pipeline" [active] [ref=e412] [cursor=pointer]:
+            - paragraph [ref=e416]: ▶ Run Full Pipeline
+          - generic [ref=e418]:
+            - paragraph [ref=e421]: "[1/1] C — Dr. Sarah Mitchell…"
+            - progressbar "50% Loaded" [ref=e439]
+          - generic [ref=e444]:
+            - generic [ref=e445]: "[03:38:08] 🔌 Initialising Gmail services…"
+            - generic [ref=e446]: "[03:38:08] ✅ Gmail Account 1 (Ahsan) ready"
+            - generic [ref=e447]: "[03:38:08] ✅ Gmail Account 2 (Abdullah) ready"
+            - generic [ref=e448]: "[03:38:08] ────────────────────────────────────────────────"
+            - generic [ref=e449]: "[03:38:08] 📌 Domain 1/1: solutionsmedicalcenter.com"
+            - generic [ref=e450]: "[03:38:08] ────────────────────────────────────────────────"
+            - generic [ref=e451]: "[03:38:08] ⚡ [A] Extracting contacts…"
+            - generic [ref=e452]: "[03:38:08] ✓ Dr. Sarah Mitchell · Medical Director · m.abdulrehman.shoukat+acct1@gmail.com"
+            - generic [ref=e453]: "[03:38:08] ✓ Dr. James Carter · Clinic Owner · m.abdulrehman.shoukat+acct2@gmail.com"
+            - generic [ref=e454]: "[03:38:08] → 2 contact(s) found"
+            - generic [ref=e455]: "[03:38:08] ⚡ [B] Crawling solutionsmedicalcenter.com…"
+            - generic [ref=e456]:
+              - text: "[03:38:10]"
+              - generic [ref=e457]: "❌ Crawl failed: 'charmap' codec can't encode character '\\u2192' in position 11: character maps to *** You may need to add PYTHONIOENCODING=utf-8 to your environment ***"
+            - generic [ref=e458]: "[03:38:10] ⚡ [C] Generating 2 email(s)…"
+            - generic [ref=e459]: "[03:38:10] Generating for Dr. Sarah Mitchell (Medical Director)…"
+      - group [ref=e190]:
+        - generic "keyboard_arrow_right Step 3 — Sent Emails" [ref=e191] [cursor=pointer]:
+          - generic [ref=e192]:
+            - generic [ref=e194]: keyboard_arrow_right
+            - paragraph [ref=e197]:
+              - strong [ref=e198]: Step 3 — Sent Emails

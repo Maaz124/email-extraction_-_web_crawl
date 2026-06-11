@@ -1,0 +1,89 @@
+- generic [ref=e2]:
+  - generic [ref=e11]:
+    - heading "✉️ Cold Outreach" [level=2] [ref=e16]
+    - paragraph [ref=e21]:
+      - strong [ref=e22]: Digitalytics AI
+      - text: · Automated Pipeline
+    - separator [ref=e27]
+    - generic [ref=e32]:
+      - generic [ref=e33]: "1"
+      - generic [ref=e34]: Configure & Upload
+    - generic [ref=e39]:
+      - generic [ref=e40]: "2"
+      - generic [ref=e41]: Run Pipeline
+    - generic [ref=e46]:
+      - generic [ref=e47]: "3"
+      - generic [ref=e48]: Review & Send
+    - separator [ref=e53]
+  - generic [ref=e3]:
+    - banner [ref=e56]:
+      - generic [ref=e59]:
+        - button "Deploy" [ref=e61] [cursor=pointer]:
+          - generic [ref=e63]: Deploy
+        - button "Main menu" [ref=e65] [cursor=pointer]:
+          - img [ref=e66]
+    - generic [ref=e69]:
+      - generic [ref=e74]:
+        - heading "Cold Outreach Pipeline" [level=1] [ref=e76]:
+          - text: Cold Outreach Pipeline
+          - generic [ref=e77]:
+            - link "Link to heading":
+              - /url: "#cold-outreach-pipeline"
+              - img
+        - paragraph [ref=e78]: Configure · Run · Review · Send — fully automated
+      - generic [ref=e80]:
+        - generic [ref=e87]:
+          - generic [ref=e88]: "0"
+          - generic [ref=e89]: Active Domains
+        - generic [ref=e96]:
+          - generic [ref=e97]: "0"
+          - generic [ref=e98]: Contacts
+        - generic [ref=e105]:
+          - generic [ref=e106]: "0"
+          - generic [ref=e107]: Crawled Sites
+        - generic [ref=e114]:
+          - generic [ref=e115]: "0"
+          - generic [ref=e116]: Emails Sent
+      - group [ref=e123]:
+        - generic "keyboard_arrow_down Step 1 — Configure & Upload Companies" [ref=e124] [cursor=pointer]:
+          - generic [ref=e125]:
+            - generic [ref=e127]: keyboard_arrow_down
+            - paragraph [ref=e130]:
+              - strong [ref=e131]: Step 1 — Configure & Upload Companies
+        - generic [ref=e133]:
+          - generic [ref=e138]:
+            - generic [ref=e139]: "1"
+            - text: Choose companies and configure pipeline settings
+          - generic [ref=e141]:
+            - tablist [ref=e143]:
+              - tab "📁 Upload CSV" [selected] [ref=e144] [cursor=pointer]:
+                - paragraph [ref=e146]: 📁 Upload CSV
+              - tab "📂 Existing File" [ref=e147] [cursor=pointer]:
+                - paragraph [ref=e149]: 📂 Existing File
+              - tab "✏️ Manual Entry" [ref=e150] [cursor=pointer]:
+                - paragraph [ref=e152]: ✏️ Manual Entry
+            - tabpanel "📁 Upload CSV" [ref=e155]:
+              - generic [ref=e158]:
+                - paragraph [ref=e162]:
+                  - text: CSV with a
+                  - strong [ref=e163]: Website
+                  - text: column
+                - region "CSV with a **Website** column" [ref=e164] [cursor=pointer]:
+                  - button "Choose File" [ref=e165]
+                  - button "upload Upload" [ref=e167]:
+                    - generic [ref=e169]:
+                      - generic [ref=e171]: upload
+                      - paragraph [ref=e173]: Upload
+                  - generic [ref=e176]: 200MB per file • CSV
+      - group [ref=e179]:
+        - generic "keyboard_arrow_right Step 2 — Run Pipeline" [ref=e180] [cursor=pointer]:
+          - generic [ref=e181]:
+            - generic [ref=e183]: keyboard_arrow_right
+            - paragraph [ref=e186]:
+              - strong [ref=e187]: Step 2 — Run Pipeline
+      - group [ref=e190]:
+        - generic "keyboard_arrow_right Step 3 — Sent Emails" [ref=e191] [cursor=pointer]:
+          - generic [ref=e192]:
+            - generic [ref=e194]: keyboard_arrow_right
+            - paragraph [ref=e197]:
+              - strong [ref=e198]: Step 3 — Sent Emails

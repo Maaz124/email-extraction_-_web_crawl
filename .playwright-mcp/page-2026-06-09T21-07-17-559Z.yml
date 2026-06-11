@@ -1,0 +1,103 @@
+- generic [ref=e2]:
+  - generic [ref=e11]:
+    - heading "✉️ Cold Outreach" [level=2] [ref=e16]
+    - paragraph [ref=e21]:
+      - strong [ref=e22]: Digitalytics AI
+      - text: · Automated Pipeline
+    - separator [ref=e27]
+    - generic [ref=e32]:
+      - generic [ref=e33]: "1"
+      - generic [ref=e34]: Configure & Upload
+    - generic [ref=e39]:
+      - generic [ref=e40]: "2"
+      - generic [ref=e41]: Run Pipeline
+    - generic [ref=e46]:
+      - generic [ref=e47]: "3"
+      - generic [ref=e48]: Review & Send
+    - separator [ref=e53]
+    - heading "📋 Activity Log" [level=3] [ref=e354]
+    - generic [ref=e359]:
+      - generic [ref=e360]: "[02:06:07] Loaded 1 domains"
+      - generic [ref=e424]: "[02:06:35] Confirmed 1 active domains"
+  - generic [ref=e3]:
+    - banner [ref=e56]:
+      - generic [ref=e59]:
+        - generic [ref=e426]:
+          - img "Running..." [ref=e427]:
+            - img [ref=e428]
+          - button "Stop" [ref=e433] [cursor=pointer]
+        - button "Deploy" [ref=e61] [cursor=pointer]:
+          - generic [ref=e63]: Deploy
+        - button "Main menu" [ref=e65] [cursor=pointer]:
+          - img [ref=e66]
+    - generic [ref=e69]:
+      - generic [ref=e74]:
+        - heading "Cold Outreach Pipeline" [level=1] [ref=e76]:
+          - text: Cold Outreach Pipeline
+          - generic [ref=e77]:
+            - link "Link to heading":
+              - /url: "#cold-outreach-pipeline"
+              - img
+        - paragraph [ref=e78]: Configure · Run · Review · Send — fully automated
+      - generic [ref=e80]:
+        - generic [ref=e87]:
+          - generic [ref=e88]: "1"
+          - generic [ref=e89]: Active Domains
+        - generic [ref=e96]:
+          - generic [ref=e97]: "0"
+          - generic [ref=e98]: Contacts
+        - generic [ref=e105]:
+          - generic [ref=e106]: "0"
+          - generic [ref=e107]: Crawled Sites
+        - generic [ref=e114]:
+          - generic [ref=e115]: "0"
+          - generic [ref=e116]: Emails Sent
+      - group [ref=e123]:
+        - generic "keyboard_arrow_right Step 1 — Configure & Upload Companies" [ref=e434] [cursor=pointer]:
+          - generic [ref=e125]:
+            - generic [ref=e436]: keyboard_arrow_right
+            - paragraph [ref=e130]:
+              - strong [ref=e131]: Step 1 — Configure & Upload Companies
+      - group [ref=e179]:
+        - generic "keyboard_arrow_down Step 2 — Run Pipeline" [ref=e372] [cursor=pointer]:
+          - generic [ref=e181]:
+            - generic [ref=e374]: keyboard_arrow_down
+            - paragraph [ref=e186]:
+              - strong [ref=e187]: Step 2 — Run Pipeline
+        - generic [ref=e376]:
+          - generic [ref=e381]:
+            - generic [ref=e382]: "2"
+            - text: Extract contacts · Crawl websites · Generate emails
+          - paragraph [ref=e387]:
+            - text: Ready to process
+            - strong [ref=e388]: "1"
+            - text: domain(s),
+            - strong [ref=e389]: "2"
+            - text: contact(s) per company.
+          - alert [ref=e392]:
+            - generic [ref=e395]:
+              - generic [ref=e398]: 📊
+              - generic [ref=e399]:
+                - paragraph [ref=e400]:
+                  - strong [ref=e401]: "Account 1 (Ahsan):"
+                  - text: 19 / 20
+                - paragraph [ref=e402]:
+                  - text: 📊
+                  - strong [ref=e403]: "Account 2 (Abdullah):"
+                  - text: 0 / 20
+                - paragraph [ref=e404]: ─────────────────────────────────
+                - paragraph [ref=e405]:
+                  - strong [ref=e406]: "Total:"
+                  - text: 19 / 40 —
+                  - strong [ref=e407]: 21 remaining
+          - button "▶ Run Full Pipeline" [active] [ref=e410] [cursor=pointer]:
+            - paragraph [ref=e414]: ▶ Run Full Pipeline
+          - generic [ref=e416]:
+            - paragraph [ref=e419]: Waiting to start…
+            - progressbar "0% Loaded" [ref=e420]
+      - group [ref=e190]:
+        - generic "keyboard_arrow_right Step 3 — Sent Emails" [ref=e191] [cursor=pointer]:
+          - generic [ref=e192]:
+            - generic [ref=e194]: keyboard_arrow_right
+            - paragraph [ref=e197]:
+              - strong [ref=e198]: Step 3 — Sent Emails

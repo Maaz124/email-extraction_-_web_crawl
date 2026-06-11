@@ -1,0 +1,171 @@
+- generic [ref=e2]:
+  - generic [ref=e11]:
+    - heading "✉️ Cold Outreach" [level=2] [ref=e16]
+    - paragraph [ref=e21]:
+      - strong [ref=e22]: Digitalytics AI
+      - text: · Automated Pipeline
+    - separator [ref=e27]
+    - generic [ref=e32]:
+      - generic [ref=e33]: "1"
+      - generic [ref=e34]: Configure & Upload
+    - generic [ref=e39]:
+      - generic [ref=e40]: "2"
+      - generic [ref=e41]: Run Pipeline
+    - generic [ref=e46]:
+      - generic [ref=e47]: "3"
+      - generic [ref=e48]: Review & Send
+    - separator [ref=e53]
+    - heading "📋 Activity Log" [level=3] [ref=e353]
+    - generic [ref=e359]: "[22:49:00] Loaded 1 domains"
+  - generic [ref=e3]:
+    - banner [ref=e56]:
+      - generic [ref=e59]:
+        - button "Deploy" [ref=e61] [cursor=pointer]:
+          - generic [ref=e63]: Deploy
+        - button "Main menu" [ref=e65] [cursor=pointer]:
+          - img [ref=e66]
+    - generic [ref=e69]:
+      - generic [ref=e74]:
+        - heading "Cold Outreach Pipeline" [level=1] [ref=e76]:
+          - text: Cold Outreach Pipeline
+          - generic [ref=e77]:
+            - link "Link to heading":
+              - /url: "#cold-outreach-pipeline"
+              - img
+        - paragraph [ref=e78]: Configure · Run · Review · Send — fully automated
+      - generic [ref=e80]:
+        - generic [ref=e87]:
+          - generic [ref=e88]: "1"
+          - generic [ref=e89]: Active Domains
+        - generic [ref=e96]:
+          - generic [ref=e97]: "0"
+          - generic [ref=e98]: Contacts
+        - generic [ref=e105]:
+          - generic [ref=e106]: "0"
+          - generic [ref=e107]: Crawled Sites
+        - generic [ref=e114]:
+          - generic [ref=e115]: "0"
+          - generic [ref=e116]: Emails Sent
+      - group [ref=e123]:
+        - generic "keyboard_arrow_down Step 1 — Configure & Upload Companies" [ref=e124] [cursor=pointer]:
+          - generic [ref=e125]:
+            - generic [ref=e127]: keyboard_arrow_down
+            - paragraph [ref=e130]:
+              - strong [ref=e131]: Step 1 — Configure & Upload Companies
+        - generic [ref=e133]:
+          - generic [ref=e138]:
+            - generic [ref=e139]: "1"
+            - text: Choose companies and configure pipeline settings
+          - generic [ref=e141]:
+            - tablist [ref=e143]:
+              - tab "📁 Upload CSV" [ref=e144] [cursor=pointer]:
+                - paragraph [ref=e146]: 📁 Upload CSV
+              - tab "📂 Existing File" [ref=e147] [cursor=pointer]:
+                - paragraph [ref=e149]: 📂 Existing File
+              - tab "✏️ Manual Entry" [selected] [ref=e150] [cursor=pointer]:
+                - paragraph [ref=e152]: ✏️ Manual Entry
+            - tabpanel "✏️ Manual Entry" [ref=e199]:
+              - generic [ref=e200]:
+                - generic [ref=e202]:
+                  - paragraph [ref=e206]: One domain per line
+                  - textbox "One domain per line" [ref=e209]:
+                    - /placeholder: "example.com\nanother.io"
+                    - text: parallelhealth.io
+                - button "Use These Domains" [ref=e212] [cursor=pointer]:
+                  - paragraph [ref=e216]: Use These Domains
+          - separator [ref=e233]
+          - heading "⚙️ Pipeline Settings" [level=4] [ref=e239]:
+            - text: ⚙️ Pipeline Settings
+            - generic [ref=e240]:
+              - link "Link to heading":
+                - /url: "#pipeline-settings"
+                - img
+          - generic [ref=e242]:
+            - generic [ref=e246]:
+              - generic [ref=e247]:
+                - paragraph [ref=e250]: Emails to fetch per company
+                - button "Help for Emails to fetch per company" [ref=e254] [cursor=pointer]:
+                  - img [ref=e255]
+              - generic [ref=e258]:
+                - spinbutton "Emails to fetch per company" [ref=e261]: "3"
+                - generic [ref=e262]:
+                  - button [ref=e263] [cursor=pointer]:
+                    - img [ref=e264]
+                  - button [ref=e266] [cursor=pointer]:
+                    - img [ref=e267]
+            - generic [ref=e272]:
+              - generic [ref=e273]:
+                - paragraph [ref=e276]: Limit to first N companies (0 = all)
+                - button "Help for Limit to first N companies (0 = all)" [ref=e280] [cursor=pointer]:
+                  - img [ref=e281]
+              - generic [ref=e284]:
+                - spinbutton "Limit to first N companies (0 = all)" [ref=e287]: "0"
+                - generic [ref=e288]:
+                  - button [disabled] [ref=e289]:
+                    - img [ref=e290]
+                  - button [ref=e292] [cursor=pointer]:
+                    - img [ref=e293]
+          - alert [ref=e297]:
+            - paragraph [ref=e302]:
+              - strong [ref=e303]: "1"
+              - text: domain(s) will be processed (all selected).
+          - paragraph [ref=e308]:
+            - strong [ref=e309]: "Active domains (1):"
+            - code [ref=e310]: parallelhealth.io
+          - separator [ref=e315]
+          - heading "📎 Portfolio Attachment (optional)" [level=4] [ref=e321]:
+            - text: 📎 Portfolio Attachment (optional)
+            - generic [ref=e322]:
+              - link "Link to heading":
+                - /url: "#portfolio-attachment-optional"
+                - img
+          - generic [ref=e324]:
+            - paragraph [ref=e328]: Attach a PDF to every outgoing email
+            - region "Attach a PDF to every outgoing email" [ref=e329] [cursor=pointer]:
+              - button "Choose File" [ref=e330]
+              - button "upload Upload" [ref=e332]:
+                - generic [ref=e334]:
+                  - generic [ref=e336]: upload
+                  - paragraph [ref=e338]: Upload
+              - generic [ref=e341]: 200MB per file • PDF
+          - button "Confirm & Continue →" [active] [ref=e344] [cursor=pointer]:
+            - paragraph [ref=e348]: Confirm & Continue →
+          - alert [ref=e362]:
+            - generic [ref=e365]:
+              - generic [ref=e368]: ✅
+              - paragraph [ref=e370]: Settings confirmed. Proceed to Run Pipeline.
+      - group [ref=e179]:
+        - generic "keyboard_arrow_down Step 2 — Run Pipeline" [ref=e371] [cursor=pointer]:
+          - generic [ref=e181]:
+            - generic [ref=e373]: keyboard_arrow_down
+            - paragraph [ref=e186]:
+              - strong [ref=e187]: Step 2 — Run Pipeline
+        - generic [ref=e375]:
+          - generic [ref=e380]:
+            - generic [ref=e381]: "2"
+            - text: Extract contacts · Crawl websites · Generate emails
+          - paragraph [ref=e386]:
+            - text: Ready to process
+            - strong [ref=e387]: "1"
+            - text: domain(s),
+            - strong [ref=e388]: "3"
+            - text: contact(s) per company.
+          - alert [ref=e391]:
+            - generic [ref=e394]:
+              - generic [ref=e397]: 📊
+              - paragraph [ref=e399]:
+                - text: "Daily quota:"
+                - strong [ref=e400]: 0 / 40
+                - text: sent today —
+                - strong [ref=e401]: 40 remaining
+          - button "▶ Run Full Pipeline" [ref=e404] [cursor=pointer]:
+            - paragraph [ref=e408]: ▶ Run Full Pipeline
+          - generic [ref=e410]:
+            - paragraph [ref=e413]: Waiting to start…
+            - progressbar "0% Loaded" [ref=e414]
+      - group [ref=e190]:
+        - generic "keyboard_arrow_right Step 3 — Sent Emails" [ref=e191] [cursor=pointer]:
+          - generic [ref=e192]:
+            - generic [ref=e194]: keyboard_arrow_right
+            - paragraph [ref=e197]:
+              - strong [ref=e198]: Step 3 — Sent Emails
