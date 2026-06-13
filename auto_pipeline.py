@@ -13,7 +13,7 @@ Cron entry (edit with `crontab -e`):
 import sys
 import csv
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # Ensure project root is importable regardless of cron's working directory
@@ -30,12 +30,60 @@ from pipeline.log              import logger
 DATA_DIR        = PROJECT_ROOT / "data"
 EMAILED_LOG     = DATA_DIR / "emailed_log.csv"
 RATE_LIMIT_FILE = DATA_DIR / "rate_limit.json"
+AUTOMATION_FILE = DATA_DIR / "automation_state.json"
 TOKEN_ACCT1     = PROJECT_ROOT / "token.json"
 TOKEN_ACCT2     = PROJECT_ROOT / "token2.json"
 
 DAILY_LIMIT    = 40
 ACCOUNT1_LIMIT = 20
 ACCOUNT2_LIMIT = 20
+RUN_INTERVAL   = timedelta(hours=24)
+
+
+# ── Automation-state helpers ─────────────────────────────────────────────────
+def _now_str() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _parse_dt(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+
+
+def load_automation_state() -> dict:
+    if AUTOMATION_FILE.exists():
+        try:
+            data = json.loads(AUTOMATION_FILE.read_text())
+            return {
+                "enabled": bool(data.get("enabled", False)),
+                "last_run_at": data.get("last_run_at"),
+                "updated_at": data.get("updated_at"),
+                "updated_by": data.get("updated_by", "unknown"),
+            }
+        except Exception:
+            pass
+    return {"enabled": False, "last_run_at": None, "updated_at": None, "updated_by": "default"}
+
+
+def save_automation_state(state: dict) -> None:
+    DATA_DIR.mkdir(exist_ok=True)
+    AUTOMATION_FILE.write_text(json.dumps(state, indent=2))
+
+
+def mark_automation_run_started(state: dict) -> None:
+    state["last_run_at"] = _now_str()
+    state["updated_at"] = _now_str()
+    state["updated_by"] = "auto_pipeline"
+    save_automation_state(state)
+
+
+def automation_due(state: dict) -> bool:
+    last_run_at = _parse_dt(state.get("last_run_at"))
+    return last_run_at is None or datetime.now() - last_run_at >= RUN_INTERVAL
 
 
 # ── Rate-limit helpers (mirrors app.py logic, no Streamlit) ───────────────────
@@ -106,6 +154,20 @@ def get_remaining_domains(emailed: set) -> list[str]:
 def run() -> None:
     logger.info("=" * 60)
     logger.info(f"[AUTO] Pipeline started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+    automation_state = load_automation_state()
+    if not automation_state.get("enabled"):
+        logger.info("[AUTO] Automation is disabled from Streamlit — nothing to do.")
+        logger.info("=" * 60)
+        return
+
+    if not automation_due(automation_state):
+        last_run = automation_state.get("last_run_at") or "unknown"
+        logger.info(f"[AUTO] Last automated run was {last_run}; waiting for 24-hour interval.")
+        logger.info("=" * 60)
+        return
+
+    mark_automation_run_started(automation_state)
 
     # Check rate limit before doing anything
     rl = load_rate_limit()

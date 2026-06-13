@@ -9,12 +9,21 @@ services:
     restart: unless-stopped
     ports:
       - "8501:8501"
+    environment:
+      # The entrypoint checks whether Streamlit automation is enabled.
+      # auto_pipeline.py itself enforces the 24-hour send interval.
+      AUTO_PIPELINE_CHECK_SECONDS: "3600"
+      STREAMLIT_SERVER_PORT: "8501"
+      STREAMLIT_SERVER_ADDRESS: "0.0.0.0"
     volumes:
       # Mount data folder to persist csv data and emailed logs
       - ./data:/app/data
+      # Mount logs so background automation and Streamlit logs survive restarts
+      - ./logs:/app/logs
       # Mount secrets (token needs write access to auto-refresh)
       - ./.env:/app/.env:ro
       - ./token.json:/app/token.json
+      - ./token2.json:/app/token2.json
     deploy:
       resources:
         limits:
@@ -22,4 +31,3 @@ services:
           memory: 1G
         reservations:
           memory: 256M
-

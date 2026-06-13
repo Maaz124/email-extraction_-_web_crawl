@@ -24,7 +24,7 @@ import concurrent.futures
 import logging
 import traceback
 from io import StringIO
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 
 import streamlit as st
@@ -134,6 +134,8 @@ DAILY_LIMIT      = ACCOUNT1_LIMIT + ACCOUNT2_LIMIT   # 40
 TOKEN_FILE_ACCT1 = PROJECT_ROOT / "token.json"
 TOKEN_FILE_ACCT2 = PROJECT_ROOT / "token2.json"
 RATE_LIMIT_PATH  = PROJECT_ROOT / "data" / "rate_limit.json"
+AUTOMATION_PATH  = PROJECT_ROOT / "data" / "automation_state.json"
+AUTOMATION_INTERVAL = timedelta(hours=24)
 
 def _root(filename: str) -> str:
     return str(PROJECT_ROOT / filename)
@@ -242,6 +244,54 @@ def increment_rate_limit(account: int) -> tuple:
     save_rate_limit(data)
     return data["account1_sent"], data["account2_sent"]
 
+# ─── Automation helpers ──────────────────────────────────────────────────────
+def _dt_str() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def _parse_dt(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+
+def load_automation_state() -> dict:
+    if AUTOMATION_PATH.exists():
+        try:
+            data = json.loads(AUTOMATION_PATH.read_text())
+            return {
+                "enabled": bool(data.get("enabled", False)),
+                "last_run_at": data.get("last_run_at"),
+                "updated_at": data.get("updated_at"),
+                "updated_by": data.get("updated_by", "unknown"),
+            }
+        except Exception:
+            pass
+    return {"enabled": False, "last_run_at": None, "updated_at": None, "updated_by": "default"}
+
+def save_automation_state(state: dict) -> None:
+    DATA_DIR.mkdir(exist_ok=True)
+    AUTOMATION_PATH.write_text(json.dumps(state, indent=2))
+
+def set_automation_enabled(enabled: bool) -> None:
+    state = load_automation_state()
+    state["enabled"] = enabled
+    state["updated_at"] = _dt_str()
+    state["updated_by"] = "streamlit"
+    save_automation_state(state)
+
+def next_automation_run_label(state: dict) -> str:
+    if not state.get("enabled"):
+        return "Paused"
+    last_run_at = _parse_dt(state.get("last_run_at"))
+    if last_run_at is None:
+        return "Next scheduler run"
+    next_run_at = last_run_at + AUTOMATION_INTERVAL
+    if datetime.now() >= next_run_at:
+        return "Due now"
+    return next_run_at.strftime("%Y-%m-%d %H:%M:%S")
+
 # ─── Session State ────────────────────────────────────────────────────────────
 _emailed_on_startup = load_emailed_log()
 
@@ -283,6 +333,28 @@ with st.sidebar:
             unsafe_allow_html=True,
         )
 
+    st.markdown("---")
+    st.markdown("### Automation")
+    _automation_state = load_automation_state()
+    if _automation_state.get("enabled"):
+        st.success("Enabled")
+    else:
+        st.warning("Paused")
+    st.caption("When enabled, the scheduled runner sends up to 40 emails every 24 hours.")
+    auto_c1, auto_c2 = st.columns(2)
+    with auto_c1:
+        if st.button("Start", key="btn_start_automation", disabled=_automation_state.get("enabled")):
+            set_automation_enabled(True)
+            log("Automation enabled", "success")
+            st.rerun()
+    with auto_c2:
+        if st.button("Stop", key="btn_stop_automation", disabled=not _automation_state.get("enabled")):
+            set_automation_enabled(False)
+            log("Automation paused", "warning")
+            st.rerun()
+    st.caption(f"Last run: {_automation_state.get('last_run_at') or 'Never'}")
+    st.caption(f"Next eligible: {next_automation_run_label(_automation_state)}")
+    st.caption("Requires cron or another scheduler to call auto_pipeline.py.")
     st.markdown("---")
 
     if st.session_state.logs:
@@ -860,4 +932,3 @@ with st.expander("**Step 3 — Sent Emails**", expanded=(st.session_state.step =
                             unsafe_allow_html=True)
             st.markdown("<hr style='margin:12px 0;border-color:rgba(99,102,241,0.1);'>",
                         unsafe_allow_html=True)
-

@@ -31,6 +31,9 @@ RUN playwright install chromium --with-deps && \
 # Copy the rest of the application code
 COPY . .
 
+# Entrypoint starts the background automation checker and Streamlit
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Set proper ownership so appuser can write to data folders if needed
 RUN chown -R appuser:appuser /app /home/appuser
 
@@ -40,5 +43,5 @@ USER appuser
 # Expose the Streamlit port
 EXPOSE 8501
 
-# Entry point for the Streamlit application
-ENTRYPOINT ["streamlit", "run", "ui/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Entry point starts Streamlit plus the automation checker loop
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
