@@ -4,6 +4,7 @@ Fetches contacts + emails for a list of domains from the high-probability buyers
 """
 
 import csv
+import urllib.parse
 from pathlib import Path
 
 _EXTRACTED_FILE = (
@@ -25,6 +26,13 @@ def _write_reserved_row(row: dict) -> None:
         writer.writerow(row)
 
 
+def _normalize_domain(value: str) -> str:
+    parsed = urllib.parse.urlparse(value.strip())
+    domain = parsed.netloc if parsed.netloc else parsed.path.split("/")[0]
+    domain = domain.lower().strip()
+    return domain[4:] if domain.startswith("www.") else domain
+
+
 def get_emails_for_company(domain: str, max_people: int = 3, _reserved_seen: set | None = None) -> list[dict]:
     """
     Query contacts from the high-probability buyers CSV for `domain`.
@@ -34,12 +42,18 @@ def get_emails_for_company(domain: str, max_people: int = 3, _reserved_seen: set
         print(f"  [ERROR] {_EXTRACTED_FILE} not found.")
         return []
 
+    requested_domain = _normalize_domain(domain)
+
     try:
         with open(_EXTRACTED_FILE, encoding="utf-8") as f:
             reader = csv.DictReader(f)
             rows = []
             for r in reader:
-                if r.get("Email Domain") == domain and r.get("Email Address"):
+                row_domains = {
+                    _normalize_domain(r.get("Email Domain", "")),
+                    _normalize_domain(r.get("Website", "")),
+                }
+                if requested_domain in row_domains and r.get("Email Address"):
                     state = r.get("Company State", "").strip()
                     if state in RESERVED_STATES:
                         email_addr = r.get("Email Address", "")
@@ -53,7 +67,7 @@ def get_emails_for_company(domain: str, max_people: int = 3, _reserved_seen: set
                     salutation = r.get("Salutation", "").strip()
                     greeting   = f"Hi Dr. {last_name}," if salutation == "Dr." else f"Hi {first_name},"
                     rows.append({
-                        "domain":   r.get("Email Domain", ""),
+                        "domain":   requested_domain,
                         "company":  r.get("Company Name", domain),
                         "title":    r.get("Job Title", ""),
                         "name":     f"{first_name} {last_name}".strip(),
