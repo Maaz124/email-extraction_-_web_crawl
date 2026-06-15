@@ -1,12 +1,16 @@
 """
 pipeline/email_extraction.py
-Fetches contacts + emails for a list of domains from a local CSV file.
+Fetches contacts + emails for a list of domains from the high-probability buyers CSV.
 """
 
 import csv
 from pathlib import Path
 
-_EXTRACTED_FILE = Path(__file__).resolve().parent.parent / "data" / "test_contacts.csv"
+_EXTRACTED_FILE = (
+    Path(__file__).resolve().parent.parent
+    / "data"
+    / "high_probability_buyers_sorted_by_title.csv"
+)
 
 RESERVED_STATES = {"Wisconsin", "Indiana", "Illinois"}
 _RESERVED_FILE  = Path(__file__).resolve().parent.parent / "data" / "reserved_contacts.csv"
@@ -23,7 +27,7 @@ def _write_reserved_row(row: dict) -> None:
 
 def get_emails_for_company(domain: str, max_people: int = 3, _reserved_seen: set | None = None) -> list[dict]:
     """
-    Query contacts from the ZoomInfo CSV for `domain`.
+    Query contacts from the high-probability buyers CSV for `domain`.
     Returns a list of dicts with keys: domain, company, title, name, email, greeting.
     """
     if not _EXTRACTED_FILE.exists():

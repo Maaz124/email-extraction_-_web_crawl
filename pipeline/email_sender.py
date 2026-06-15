@@ -52,24 +52,49 @@ def _client_config() -> dict:
     }
 
 
-def get_gmail_service(token_file: str = DEFAULT_TOKEN_FILE):
+def _write_token(token_file: str, creds: Credentials) -> None:
+    Path(token_file).write_text(creds.to_json())
+
+
+def _missing_token_message(token_file: str) -> str:
+    name = Path(token_file).name
+    helper = "build-token2.py" if name == "token2.json" else "build-token.py"
+    return (
+        f"No usable Gmail OAuth token found at {token_file}. "
+        f"Generate {name} first with `{helper}`, then copy/mount it on the server."
+    )
+
+
+def get_gmail_service(token_file: str = DEFAULT_TOKEN_FILE, allow_interactive_auth: bool = False):
     """Build and return an authenticated Gmail service object."""
     creds = None
 
-    if os.path.exists(token_file):
+    if os.path.isdir(token_file):
+        raise RuntimeError(f"Gmail token path is a directory, not a file: {token_file}")
+
+    if os.path.isfile(token_file):
         # Load without enforcing scopes — avoids invalid_scope on refresh
         # when token was originally granted with a different scope string.
         creds = Credentials.from_authorized_user_file(token_file)
 
-    if not creds or not creds.token:
-        if creds and creds.refresh_token:
+    if creds and not creds.valid:
+        if creds.refresh_token:
             creds._scopes = None  # don't send scope in refresh request
             creds.refresh(Request())
-        else:
+            _write_token(token_file, creds)
+        elif allow_interactive_auth:
             flow = InstalledAppFlow.from_client_config(_client_config(), SCOPES)
             creds = flow.run_local_server(port=0)
-        with open(token_file, "w") as f:
-            f.write(creds.to_json())
+            _write_token(token_file, creds)
+        else:
+            raise RuntimeError(_missing_token_message(token_file))
+    elif not creds:
+        if allow_interactive_auth:
+            flow = InstalledAppFlow.from_client_config(_client_config(), SCOPES)
+            creds = flow.run_local_server(port=0)
+            _write_token(token_file, creds)
+        else:
+            raise RuntimeError(_missing_token_message(token_file))
 
     return build("gmail", "v1", credentials=creds)
 
@@ -168,4 +193,3 @@ def send_email(
     label = "Acct1/Ahsan" if sender_key == "account1" else "Acct2/Abdullah"
     print(f"  [{label}] Sent to {to} — Message ID: {result['id']}")
     return result["id"]
-

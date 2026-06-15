@@ -426,18 +426,18 @@ with st.expander("**Step 1 — Configure & Upload Companies**", expanded=(st.ses
 
     # ── Tab 1: Upload ──────────────────────────────────────────────────────────
     with tab_up:
-        uploaded = st.file_uploader("CSV with a **Website** column", type=["csv"], key="csv_upload")
+        uploaded = st.file_uploader("CSV with a **Website** or **Email Domain** column", type=["csv"], key="csv_upload")
         if uploaded and st.button("Parse CSV", key="btn_parse_upload"):
             content = uploaded.read().decode("utf-8")
             domains = [
                 d for row in csv.DictReader(StringIO(content))
-                if (d := _parse_domain((row.get("Website") or row.get("domain") or "").strip()))
+                if (d := _parse_domain((row.get("Website") or row.get("domain") or row.get("Email Domain") or "").strip()))
             ]
             if domains:
                 _set_domains(domains)
                 st.success(f"✅ {len(st.session_state.domains)} domains loaded")
             else:
-                st.error("No domains found — check the 'Website' or 'domain' column.")
+                st.error("No domains found — check the 'Website', 'domain', or 'Email Domain' column.")
 
     # ── Tab 2: Existing file ───────────────────────────────────────────────────
     with tab_file:
@@ -450,8 +450,8 @@ with st.expander("**Step 1 — Configure & Upload Companies**", expanded=(st.ses
                 domains = []
                 with open(filepath, encoding="utf-8-sig") as f:
                     for row in csv.DictReader(f):
-                        # Accept both "Website" (user CSVs) and "domain" (temp_domains.csv)
-                        raw = row.get("Website") or row.get("domain") or ""
+                        # Accept website/domain CSVs and the high-probability buyers export.
+                        raw = row.get("Website") or row.get("domain") or row.get("Email Domain") or ""
                         d = _parse_domain(raw.strip())
                         if d:
                             domains.append(d)
@@ -485,12 +485,12 @@ with st.expander("**Step 1 — Configure & Upload Companies**", expanded=(st.ses
         with col_s1:
             # Feature 5: emails per company
             epc = st.number_input(
-                "Emails to fetch per company",
+                "Emails to use per company",
                 min_value=1,
                 max_value=20,
                 value=st.session_state.emails_per_company,
                 step=1,
-                help="How many contacts to fetch per domain from extracted_emails.csv.",
+                help="How many contacts to use per domain from the high-probability buyers CSV.",
                 key="epc_input",
             )
             st.session_state.emails_per_company = epc
