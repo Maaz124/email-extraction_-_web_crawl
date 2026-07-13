@@ -10,7 +10,22 @@ import trafilatura
 from crawl4ai import AsyncWebCrawler
 from pipeline.log import logger
 
-_enc = tiktoken.encoding_for_model("gpt-4o")
+_enc = None
+
+
+def _count_tokens(content: str) -> int:
+    """Count tokens for logging, falling back safely if tokenizer data is unavailable."""
+    global _enc
+    if _enc is False:
+        return max(1, len(content) // 4)
+    try:
+        if _enc is None:
+            _enc = tiktoken.encoding_for_model("gpt-4o")
+        return len(_enc.encode(content))
+    except Exception as exc:
+        logger.warning(f"[CRAWL] Tokenizer unavailable; using character estimate: {exc}")
+        _enc = False
+        return max(1, len(content) // 4)
 
 
 async def _crawl_all(domains: list[str]) -> dict[str, str]:
@@ -34,7 +49,7 @@ async def _crawl_all(domains: list[str]) -> dict[str, str]:
                         no_fallback=False,
                     )
                     if extracted:
-                        token_count = len(_enc.encode(extracted))
+                        token_count = _count_tokens(extracted)
                         char_count = len(extracted)
                         logger.info(
                             f"[CRAWL] {domain} — trafilatura extracted "

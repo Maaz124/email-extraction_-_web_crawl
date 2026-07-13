@@ -24,14 +24,23 @@ import concurrent.futures
 import logging
 import traceback
 from io import StringIO
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 
 import streamlit as st
 
+from automation_schedule import (
+    choose_next_run,
+    display_scheduled_at,
+    eastern_now,
+    format_scheduled_at,
+    parse_scheduled_at,
+)
+from contact_source import get_contact_source_file, list_contact_sources, save_contact_source
+
 # ─── Page Config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Digitalytics AI — Cold Outreach",
+    page_title="Digitalytics AI — Athena Outreach",
     page_icon="✉️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -135,7 +144,6 @@ TOKEN_FILE_ACCT1 = PROJECT_ROOT / "token.json"
 TOKEN_FILE_ACCT2 = PROJECT_ROOT / "token2.json"
 RATE_LIMIT_PATH  = PROJECT_ROOT / "data" / "rate_limit.json"
 AUTOMATION_PATH  = PROJECT_ROOT / "data" / "automation_state.json"
-AUTOMATION_INTERVAL = timedelta(hours=24)
 
 def _root(filename: str) -> str:
     return str(PROJECT_ROOT / filename)
@@ -213,7 +221,7 @@ def mark_domain_emailed(domain: str) -> None:
 def load_rate_limit() -> dict:
     """Return {date, account1_sent, account2_sent}, auto-resetting on date change.
     Migrates legacy 'sent_today' schema transparently."""
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = eastern_now().strftime("%Y-%m-%d")
     if RATE_LIMIT_PATH.exists():
         try:
             data = json.loads(RATE_LIMIT_PATH.read_text())
@@ -246,15 +254,7 @@ def increment_rate_limit(account: int) -> tuple:
 
 # ─── Automation helpers ──────────────────────────────────────────────────────
 def _dt_str() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-def _parse_dt(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    try:
-        return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-    except ValueError:
-        return None
+    return format_scheduled_at(eastern_now())
 
 def load_automation_state() -> dict:
     if AUTOMATION_PATH.exists():
@@ -263,12 +263,19 @@ def load_automation_state() -> dict:
             return {
                 "enabled": bool(data.get("enabled", False)),
                 "last_run_at": data.get("last_run_at"),
+                "next_run_at": data.get("next_run_at"),
                 "updated_at": data.get("updated_at"),
                 "updated_by": data.get("updated_by", "unknown"),
             }
         except Exception:
             pass
-    return {"enabled": False, "last_run_at": None, "updated_at": None, "updated_by": "default"}
+    return {
+        "enabled": False,
+        "last_run_at": None,
+        "next_run_at": None,
+        "updated_at": None,
+        "updated_by": "default",
+    }
 
 def save_automation_state(state: dict) -> None:
     DATA_DIR.mkdir(exist_ok=True)
@@ -276,7 +283,12 @@ def save_automation_state(state: dict) -> None:
 
 def set_automation_enabled(enabled: bool) -> None:
     state = load_automation_state()
+    was_enabled = state.get("enabled", False)
     state["enabled"] = enabled
+    if enabled and (not was_enabled or not parse_scheduled_at(state.get("next_run_at"))):
+        state["next_run_at"] = format_scheduled_at(choose_next_run())
+    elif not enabled:
+        state["next_run_at"] = None
     state["updated_at"] = _dt_str()
     state["updated_by"] = "streamlit"
     save_automation_state(state)
@@ -284,13 +296,10 @@ def set_automation_enabled(enabled: bool) -> None:
 def next_automation_run_label(state: dict) -> str:
     if not state.get("enabled"):
         return "Paused"
-    last_run_at = _parse_dt(state.get("last_run_at"))
-    if last_run_at is None:
-        return "Next scheduler run"
-    next_run_at = last_run_at + AUTOMATION_INTERVAL
-    if datetime.now() >= next_run_at:
+    next_run_at = parse_scheduled_at(state.get("next_run_at"))
+    if next_run_at and eastern_now() >= next_run_at:
         return "Due now"
-    return next_run_at.strftime("%Y-%m-%d %H:%M:%S")
+    return display_scheduled_at(state.get("next_run_at"))
 
 # ─── Session State ────────────────────────────────────────────────────────────
 _emailed_on_startup = load_emailed_log()
@@ -313,48 +322,17 @@ for key, default in {
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## ✉️ Cold Outreach")
-    st.markdown("**Digitalytics AI** · Automated Pipeline")
+    st.markdown("**Digitalytics AI** · Athena Automation")
     st.markdown("---")
 
-    for num, label in [
-        (1, "Configure & Upload"),
-        (2, "Run Pipeline"),
-        (3, "Review & Send"),
-    ]:
-        active = st.session_state.step == num
-        color  = "#6366f1" if active else "#334155"
-        st.markdown(
-            f"""<div style="display:flex;align-items:center;gap:10px;padding:8px 0;">
-            <div style="width:28px;height:28px;border-radius:50%;background:{color};
-                display:flex;align-items:center;justify-content:center;
-                font-size:13px;font-weight:700;color:white;flex-shrink:0;">{num}</div>
-            <span style="font-size:14px;color:{'#c7d2fe' if active else '#64748b'};
-                font-weight:{'600' if active else '400'};">{label}</span></div>""",
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("---")
-    st.markdown("### Automation")
     _automation_state = load_automation_state()
     if _automation_state.get("enabled"):
-        st.success("Enabled")
+        st.success("Daily automation is running")
     else:
-        st.warning("Paused")
-    st.caption("When enabled, the scheduled runner sends up to 40 emails every 24 hours.")
-    auto_c1, auto_c2 = st.columns(2)
-    with auto_c1:
-        if st.button("Start", key="btn_start_automation", disabled=_automation_state.get("enabled")):
-            set_automation_enabled(True)
-            log("Automation enabled", "success")
-            st.rerun()
-    with auto_c2:
-        if st.button("Stop", key="btn_stop_automation", disabled=not _automation_state.get("enabled")):
-            set_automation_enabled(False)
-            log("Automation paused", "warning")
-            st.rerun()
-    st.caption(f"Last run: {_automation_state.get('last_run_at') or 'Never'}")
-    st.caption(f"Next eligible: {next_automation_run_label(_automation_state)}")
-    st.caption("Requires cron or another scheduler to call auto_pipeline.py.")
+        st.warning("Daily automation is stopped")
+    st.caption(f"File: {get_contact_source_file().name}")
+    st.caption(f"Last run: {display_scheduled_at(_automation_state.get('last_run_at')) if _automation_state.get('last_run_at') else 'Never'}")
+    st.caption(f"Next run: {next_automation_run_label(_automation_state)}")
     st.markdown("---")
 
     if st.session_state.logs:
@@ -372,28 +350,87 @@ st.markdown("""
   <h1 style="font-size:36px;font-weight:700;
     background:linear-gradient(135deg,#6366f1,#a78bfa,#38bdf8);
     -webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0;">
-    Cold Outreach Pipeline
+    Athena Outreach Automation
   </h1>
   <p style="color:#64748b;margin-top:6px;font-size:15px;">
-    Configure · Run · Review · Send — fully automated
+    Choose a contact file, then start the daily schedule or send manually
   </p>
 </div>
 """, unsafe_allow_html=True)
 
-# ── Stat bar ──────────────────────────────────────────────────────────────────
-c1, c2, c3, c4 = st.columns(4)
-sent_count_hdr = sum(1 for v in st.session_state.generated_emails.values() if v.get("sent"))
-for col, num, label in [
-    (c1, len(st.session_state.active_domains),   "Active Domains"),
-    (c2, len(st.session_state.contacts),          "Contacts"),
-    (c3, len(st.session_state.crawled),           "Crawled Sites"),
-    (c4, sent_count_hdr,                           "Emails Sent"),
-]:
-    col.markdown(
-        f"<div class='metric-box'><div class='metric-num'>{num}</div>"
-        f"<div class='metric-label'>{label}</div></div>",
-        unsafe_allow_html=True,
+# ── Simple control center ─────────────────────────────────────────────────────
+st.markdown("<div class='card'>", unsafe_allow_html=True)
+st.markdown("### Outreach controls")
+st.caption("The selected file is used for both daily automation and manual sending.")
+
+_sources = list_contact_sources()
+_source_names = [path.name for path in _sources]
+_current_source = get_contact_source_file().name
+if not _source_names:
+    st.error("No compatible contact CSV was found in the data folder.")
+    _selected_source = None
+else:
+    _default_source_index = _source_names.index(_current_source) if _current_source in _source_names else 0
+    _selected_source = st.selectbox(
+        "Contact file",
+        _source_names,
+        index=_default_source_index,
+        help="Requires name, company, email, title, and website/domain columns.",
     )
+
+_control_start, _control_stop, _control_manual = st.columns(3)
+with _control_start:
+    if st.button(
+        "▶ Start Daily Automation",
+        key="control_start_daily",
+        disabled=not _selected_source,
+        use_container_width=True,
+    ):
+        save_contact_source(_selected_source)
+        set_automation_enabled(True)
+        log(f"Daily automation started with {_selected_source}", "success")
+        st.rerun()
+
+with _control_stop:
+    if st.button(
+        "■ Stop Automation",
+        key="control_stop_daily",
+        disabled=not _automation_state.get("enabled"),
+        use_container_width=True,
+    ):
+        set_automation_enabled(False)
+        log("Daily automation stopped", "warning")
+        st.rerun()
+
+with _control_manual:
+    if st.button(
+        "✉ Send Now",
+        key="control_send_now",
+        disabled=not _selected_source,
+        use_container_width=True,
+        help="Immediately sends up to the remaining daily limit.",
+    ):
+        save_contact_source(_selected_source)
+        log(f"Manual send started with {_selected_source}", "info")
+        with st.spinner("Sending now. Keep this page open until the run finishes…"):
+            from auto_pipeline import run as run_automatic_pipeline
+            _manual_sent = run_automatic_pipeline(force=True)
+        if _manual_sent:
+            st.success(f"Manual run complete — {_manual_sent} email(s) sent.")
+        else:
+            st.warning("No emails were sent. The daily limit may be reached, no contacts may remain, or a service may need attention. Check logs/pipeline.log.")
+
+_automation_state = load_automation_state()
+_rate = load_rate_limit()
+_sent_today = _rate["account1_sent"] + _rate["account2_sent"]
+_status_text = "Running" if _automation_state.get("enabled") else "Stopped"
+_next_text = next_automation_run_label(_automation_state)
+st.info(
+    f"**Status:** {_status_text}  ·  **Active file:** {get_contact_source_file().name}  ·  "
+    f"**Sent today:** {_sent_today}/{DAILY_LIMIT}  ·  **Next run:** {_next_text}"
+)
+st.caption("Daily runs start at a randomly selected time between 2:00 and 4:00 PM Eastern. You can close the browser after starting.")
+st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -407,6 +444,13 @@ def _parse_domain(website: str) -> str | None:
         netloc = netloc[4:]
     return netloc or None
 
+def _domain_from_row(row: dict) -> str | None:
+    website = (row.get("Website") or row.get("domain") or row.get("Email Domain") or "").strip()
+    if website:
+        return _parse_domain(website)
+    email = (row.get("Email") or row.get("Email Address") or "").strip()
+    return _parse_domain(email.rsplit("@", 1)[-1]) if "@" in email else None
+
 def _set_domains(raw: list[str]) -> None:
     st.session_state.domains = list(dict.fromkeys(raw))
     DATA_DIR.mkdir(exist_ok=True)
@@ -418,7 +462,7 @@ def _set_domains(raw: list[str]) -> None:
     log(f"Loaded {len(st.session_state.domains)} domains", "success")
     st.session_state.step = max(st.session_state.step, 1)
 
-with st.expander("**Step 1 — Configure & Upload Companies**", expanded=(st.session_state.step == 1)):
+with st.expander("**Advanced — Choose specific company domains**", expanded=False):
     st.markdown("<div class='step-title'><span class='step-badge'>1</span>Choose companies and configure pipeline settings</div>",
                 unsafe_allow_html=True)
 
@@ -426,18 +470,18 @@ with st.expander("**Step 1 — Configure & Upload Companies**", expanded=(st.ses
 
     # ── Tab 1: Upload ──────────────────────────────────────────────────────────
     with tab_up:
-        uploaded = st.file_uploader("CSV with a **Website** or **Email Domain** column", type=["csv"], key="csv_upload")
+        uploaded = st.file_uploader("CSV with a **Website**, **Email**, or **Email Domain** column", type=["csv"], key="csv_upload")
         if uploaded and st.button("Parse CSV", key="btn_parse_upload"):
             content = uploaded.read().decode("utf-8")
             domains = [
                 d for row in csv.DictReader(StringIO(content))
-                if (d := _parse_domain((row.get("Website") or row.get("domain") or row.get("Email Domain") or "").strip()))
+                if (d := _domain_from_row(row))
             ]
             if domains:
                 _set_domains(domains)
                 st.success(f"✅ {len(st.session_state.domains)} domains loaded")
             else:
-                st.error("No domains found — check the 'Website', 'domain', or 'Email Domain' column.")
+                st.error("No domains found — check the 'Website', 'Email', 'domain', or 'Email Domain' column.")
 
     # ── Tab 2: Existing file ───────────────────────────────────────────────────
     with tab_file:
@@ -451,8 +495,7 @@ with st.expander("**Step 1 — Configure & Upload Companies**", expanded=(st.ses
                 with open(filepath, encoding="utf-8-sig") as f:
                     for row in csv.DictReader(f):
                         # Accept website/domain CSVs and the high-probability buyers export.
-                        raw = row.get("Website") or row.get("domain") or row.get("Email Domain") or ""
-                        d = _parse_domain(raw.strip())
+                        d = _domain_from_row(row)
                         if d:
                             domains.append(d)
                 if domains:
@@ -562,7 +605,7 @@ with st.expander("**Step 1 — Configure & Upload Companies**", expanded=(st.ses
 # ═══════════════════════════════════════════════════════════════════════════════
 # STEP 2 — Run Pipeline (Extract → Crawl → Generate)
 # ═══════════════════════════════════════════════════════════════════════════════
-with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step == 2)):
+with st.expander("**Advanced — Run selected domains manually**", expanded=False):
     st.markdown(
         "<div class='step-title'><span class='step-badge'>2</span>"
         "Extract contacts · Crawl websites · Generate emails</div>",
@@ -570,7 +613,7 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
     )
 
     if not st.session_state.active_domains:
-        st.warning("Complete Step 1 and confirm your settings first.")
+        st.warning("Choose and confirm specific company domains in the advanced section above first.")
     else:
         active_domains    = st.session_state.active_domains
         emails_per_co     = st.session_state.emails_per_company
@@ -684,7 +727,7 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
                     domain_contacts = extract_contacts([domain], max_people=emails_per_co)
                     st.session_state.contacts.extend(domain_contacts)
                     save_csv(_root("emails_output.csv"), st.session_state.contacts,
-                             ["domain", "company", "title", "name", "email"])
+                             ["domain", "company", "title", "name", "email", "website"])
                     for c in domain_contacts:
                         _live(f"   ✓ {c.get('name','?')} · {c.get('title','?')} · {c.get('email','?')}", "success")
                     _live(f"   → {len(domain_contacts)} contact(s) found", "success")
@@ -802,11 +845,15 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
                             active_acct = 1
                             sender_key = "account1"
                             acct_label = "Acct1/Ahsan"
-                        else:
+                        elif _a2_sent < ACCOUNT2_LIMIT and svc2:
                             active_svc = svc2
                             active_acct = 2
                             sender_key = "account2"
                             acct_label = "Acct2/Abdullah"
+                        else:
+                            _live("🚫 No authenticated Gmail account has send capacity remaining.", "warning")
+                            _limit_hit = True
+                            break
                         data_e = st.session_state.generated_emails[email_key]
                         progress_bar.progress(
                             b + w*(0.75 + 0.25*ei/max(len(domain_email_keys), 1)),
@@ -882,11 +929,11 @@ with st.expander("**Step 2 — Run Pipeline**", expanded=(st.session_state.step 
 # ═══════════════════════════════════════════════════════════════════════════════
 # STEP 3 — Sent Email History
 # ═══════════════════════════════════════════════════════════════════════════════
-with st.expander("**Step 3 — Sent Emails**", expanded=(st.session_state.step == 3)):
+with st.expander("**Advanced — Current-session email details**", expanded=False):
     st.markdown("<div class='step-title'><span class='step-badge'>3</span>Sent email history</div>",
                 unsafe_allow_html=True)
     if not st.session_state.generated_emails:
-        st.warning("No emails sent yet — run the pipeline first (Step 2).")
+        st.info("No current-session email details are available.")
     else:
         all_e   = st.session_state.generated_emails
         sent_e  = {k: v for k, v in all_e.items() if v.get("sent")}

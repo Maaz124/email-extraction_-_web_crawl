@@ -1,57 +1,52 @@
 """
 auto_pipeline.py
 Headless pipeline runner — no Streamlit, no UI.
-Designed to be called by a Linux cron job at 6 AM daily.
-
-Usage:
-    PYTHONIOENCODING=utf-8 .venv/bin/python auto_pipeline.py
-
-Cron entry (edit with `crontab -e`):
-    0 6 * * * PYTHONIOENCODING=utf-8 /path/to/project/.venv/bin/python /path/to/project/auto_pipeline.py >> /path/to/project/logs/cron.log 2>&1
+Designed to be polled by the deployed background scheduler. When enabled,
+one random daily run is scheduled between 2:00 PM and 4:00 PM Eastern.
 """
 
 import sys
 import csv
+import fcntl
 import json
-from datetime import datetime, timedelta
 from pathlib import Path
 
 # Ensure project root is importable regardless of cron's working directory
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from pipeline.email_extraction import extract_contacts, _EXTRACTED_FILE
+from pipeline.email_extraction import extract_contacts, _contact_domain
 from pipeline.crawler          import crawl_domains
 from pipeline.email_generation import generate_email, generate_subject
 from pipeline.email_sender     import get_gmail_service, send_email
 from pipeline.log              import logger
+from automation_schedule import (
+    choose_next_run,
+    display_scheduled_at,
+    eastern_now,
+    format_scheduled_at,
+    parse_scheduled_at,
+    scheduled_run_was_missed,
+)
+from contact_source import get_contact_source_file
 
 # ── Paths & constants ─────────────────────────────────────────────────────────
 DATA_DIR        = PROJECT_ROOT / "data"
 EMAILED_LOG     = DATA_DIR / "emailed_log.csv"
 RATE_LIMIT_FILE = DATA_DIR / "rate_limit.json"
 AUTOMATION_FILE = DATA_DIR / "automation_state.json"
+RUN_LOCK_FILE   = DATA_DIR / "outreach_run.lock"
 TOKEN_ACCT1     = PROJECT_ROOT / "token.json"
 TOKEN_ACCT2     = PROJECT_ROOT / "token2.json"
 
 DAILY_LIMIT    = 40
 ACCOUNT1_LIMIT = 20
 ACCOUNT2_LIMIT = 20
-RUN_INTERVAL   = timedelta(hours=24)
 
 
 # ── Automation-state helpers ─────────────────────────────────────────────────
 def _now_str() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-def _parse_dt(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    try:
-        return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-    except ValueError:
-        return None
+    return format_scheduled_at(eastern_now())
 
 
 def load_automation_state() -> dict:
@@ -61,12 +56,19 @@ def load_automation_state() -> dict:
             return {
                 "enabled": bool(data.get("enabled", False)),
                 "last_run_at": data.get("last_run_at"),
+                "next_run_at": data.get("next_run_at"),
                 "updated_at": data.get("updated_at"),
                 "updated_by": data.get("updated_by", "unknown"),
             }
         except Exception:
             pass
-    return {"enabled": False, "last_run_at": None, "updated_at": None, "updated_by": "default"}
+    return {
+        "enabled": False,
+        "last_run_at": None,
+        "next_run_at": None,
+        "updated_at": None,
+        "updated_by": "default",
+    }
 
 
 def save_automation_state(state: dict) -> None:
@@ -75,20 +77,45 @@ def save_automation_state(state: dict) -> None:
 
 
 def mark_automation_run_started(state: dict) -> None:
-    state["last_run_at"] = _now_str()
-    state["updated_at"] = _now_str()
+    now = eastern_now()
+    state["last_run_at"] = format_scheduled_at(now)
+    state["next_run_at"] = format_scheduled_at(choose_next_run(now, next_day=True))
+    state["updated_at"] = format_scheduled_at(now)
     state["updated_by"] = "auto_pipeline"
     save_automation_state(state)
 
 
+def ensure_next_run(state: dict) -> bool:
+    """Persist a schedule for enabled legacy or newly created state."""
+    if parse_scheduled_at(state.get("next_run_at")):
+        return False
+    state["next_run_at"] = format_scheduled_at(choose_next_run())
+    state["updated_at"] = _now_str()
+    state["updated_by"] = "auto_pipeline"
+    save_automation_state(state)
+    return True
+
+
 def automation_due(state: dict) -> bool:
-    last_run_at = _parse_dt(state.get("last_run_at"))
-    return last_run_at is None or datetime.now() - last_run_at >= RUN_INTERVAL
+    next_run_at = parse_scheduled_at(state.get("next_run_at"))
+    return next_run_at is not None and eastern_now() >= next_run_at
+
+
+def reschedule_missed_run(state: dict) -> bool:
+    next_run_at = parse_scheduled_at(state.get("next_run_at"))
+    if not next_run_at or not scheduled_run_was_missed(next_run_at):
+        return False
+    state["next_run_at"] = format_scheduled_at(choose_next_run())
+    state["updated_at"] = _now_str()
+    state["updated_by"] = "auto_pipeline"
+    save_automation_state(state)
+    logger.info(f"[AUTO] Missed send window; rescheduled for {display_scheduled_at(state['next_run_at'])}")
+    return True
 
 
 # ── Rate-limit helpers (mirrors app.py logic, no Streamlit) ───────────────────
 def load_rate_limit() -> dict:
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = eastern_now().strftime("%Y-%m-%d")
     if RATE_LIMIT_FILE.exists():
         try:
             data = json.loads(RATE_LIMIT_FILE.read_text())
@@ -127,19 +154,20 @@ def mark_domain_emailed(domain: str) -> None:
         if not file_exists:
             w.writeheader()
         w.writerow({"domain": domain,
-                    "emailed_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+                    "emailed_at": eastern_now().strftime("%Y-%m-%d %H:%M:%S ET")})
 
 
 # ── Domain discovery ──────────────────────────────────────────────────────────
 def get_remaining_domains(emailed: set) -> list[str]:
-    """Return unique domains from _EXTRACTED_FILE that haven't been emailed yet."""
-    if not _EXTRACTED_FILE.exists():
-        logger.error(f"[AUTO] Contact file not found: {_EXTRACTED_FILE}")
+    """Return unique domains from the selected contact file that haven't been emailed."""
+    extracted_file = get_contact_source_file()
+    if not extracted_file.exists():
+        logger.error(f"[AUTO] Contact file not found: {extracted_file}")
         return []
-    with open(_EXTRACTED_FILE, encoding="utf-8") as f:
+    with open(extracted_file, encoding="utf-8-sig") as f:
         all_domains = list(dict.fromkeys(
-            r["Email Domain"] for r in csv.DictReader(f)
-            if r.get("Email Domain", "").strip()
+            domain for r in csv.DictReader(f)
+            if (domain := _contact_domain(r))
         ))
     remaining = [d for d in all_domains if d not in emailed]
     logger.info(
@@ -151,23 +179,40 @@ def get_remaining_domains(emailed: set) -> list[str]:
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
-def run() -> None:
-    logger.info("=" * 60)
-    logger.info(f"[AUTO] Pipeline started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+def run(force: bool = False) -> int:
+    """Run scheduled or manual outreach, preventing concurrent send batches."""
+    DATA_DIR.mkdir(exist_ok=True)
+    with open(RUN_LOCK_FILE, "w", encoding="utf-8") as lock_file:
+        try:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            logger.warning("[OUTREACH] Another send run is already active; skipping this request")
+            return 0
+        return _run(force=force)
 
+
+def _run(force: bool = False) -> int:
     automation_state = load_automation_state()
-    if not automation_state.get("enabled"):
-        logger.info("[AUTO] Automation is disabled from Streamlit — nothing to do.")
-        logger.info("=" * 60)
-        return
+    if not force:
+        if not automation_state.get("enabled"):
+            return 0
 
-    if not automation_due(automation_state):
-        last_run = automation_state.get("last_run_at") or "unknown"
-        logger.info(f"[AUTO] Last automated run was {last_run}; waiting for 24-hour interval.")
-        logger.info("=" * 60)
-        return
+        if ensure_next_run(automation_state):
+            logger.info(f"[AUTO] Scheduled next run for {display_scheduled_at(automation_state['next_run_at'])}")
 
-    mark_automation_run_started(automation_state)
+        if reschedule_missed_run(automation_state):
+            return 0
+
+        if not automation_due(automation_state):
+            return 0
+
+    logger.info("=" * 60)
+    if force:
+        logger.info(f"[MANUAL] Send Now triggered at {eastern_now().strftime('%Y-%m-%d %H:%M:%S ET')}")
+    else:
+        logger.info(f"[AUTO] Scheduler triggered at {eastern_now().strftime('%Y-%m-%d %H:%M:%S ET')}")
+        logger.info("[AUTO] Scheduled time reached; beginning today's outreach run")
+        mark_automation_run_started(automation_state)
 
     # Check rate limit before doing anything
     rl = load_rate_limit()
@@ -179,7 +224,7 @@ def run() -> None:
     if remaining_sends <= 0:
         logger.info("[AUTO] Daily limit already reached — nothing to send today.")
         logger.info("=" * 60)
-        return
+        return 0
 
     logger.info(
         f"[AUTO] Rate limit — Acct1: {a1_sent}/{ACCOUNT1_LIMIT} | "
@@ -202,7 +247,7 @@ def run() -> None:
     except Exception as e:
         logger.error(f"[AUTO] Gmail Account 2 init failed: {e} — aborting run")
         logger.info("=" * 60)
-        return
+        return 0
 
     emailed  = load_emailed_log()
     domains  = get_remaining_domains(emailed)
@@ -247,8 +292,12 @@ def run() -> None:
             # Pick account (Account 1 first, fall back to Account 2)
             if a1_sent < ACCOUNT1_LIMIT and svc1:
                 svc, acct, sender_key = svc1, 1, "account1"
-            else:
+            elif a2_sent < ACCOUNT2_LIMIT and svc2:
                 svc, acct, sender_key = svc2, 2, "account2"
+            else:
+                logger.warning("[AUTO] No authenticated Gmail account has send capacity remaining")
+                hard_stop = True
+                break
 
             try:
                 body = generate_email(
@@ -279,6 +328,7 @@ def run() -> None:
 
     logger.info(f"[AUTO] Done — {grand_sent} email(s) sent today.")
     logger.info("=" * 60)
+    return grand_sent
 
 
 if __name__ == "__main__":

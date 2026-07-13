@@ -1,6 +1,6 @@
 # Cold Outreach Pipeline
 
-Automates personalised cold outreach — contact selection from the high-probability buyers CSV, website crawling (Crawl4AI), AI email generation (OpenAI), and Gmail sending — all from a single Streamlit UI.
+Automates personalised Athena-focused outreach — contact selection from the Athena dataset, website crawling (Crawl4AI), AI email generation (OpenAI), and Gmail sending — all from a single Streamlit UI.
 
 ## Setup
 
@@ -27,10 +27,20 @@ streamlit run ui/app.py
 
 Then follow the 3-step UI: **Configure → Run Pipeline → Review Sent Emails**
 
+## Hands-Free Daily Automation
+
+The Docker deployment runs the scheduler in the background. Choose a compatible
+contact CSV in the main control center and click **Start Daily Automation** to
+schedule a random daily run between **2:00 PM and 4:00 PM Eastern**. The selected
+file and time persist across container restarts, and the pipeline sends up to 40
+emails per Eastern calendar day (20 per Gmail account). Click **Stop Automation**
+to cancel the next scheduled run, or **Send Now** to run immediately while still
+respecting the same daily limits.
+
 ## Pipeline Flow (per domain)
 
 ```
-[A] Load contacts     →  data/high_probability_buyers_sorted_by_title.csv
+[A] Load contacts     →  data/athena-dataset.csv
 [B] Crawl website     →  Crawl4AI
 [C] Generate email    →  OpenAI (personalised per contact)
 [D] Send email        →  Gmail API
@@ -39,8 +49,11 @@ Then follow the 3-step UI: **Configure → Run Pipeline → Review Sent Emails**
 
 ## Contact Source
 
-The active contact source is `data/high_probability_buyers_sorted_by_title.csv`.
-It must include `Email Domain`, `Email Address`, `Company Name`, `First Name`, `Last Name`, and `Job Title`.
+The default contact source is `data/athena-dataset.csv`; the active source can be
+changed from the frontend. A compatible file must include `Company Name`, `First
+Name`, `Last Name`, plus email, title, and website/domain columns. Both the Athena
+headers (`Email`, `Title`, `Website`) and the legacy headers (`Email Address`,
+`Job Title`, `Email Domain`) are supported.
 
 ## Project Structure
 
@@ -58,7 +71,7 @@ cold outreach/
 │   ├── companies.csv       ← Full company list
 │   ├── companies_1.csv     ← Current working list
 │   ├── digilogo.png        ← Logo embedded in outgoing emails
-│   ├── high_probability_buyers_sorted_by_title.csv ← Active contacts + emails
+│   ├── athena-dataset.csv  ← Active contacts + emails
 │   └── emailed_log.csv     ← Tracks sent domains to prevent duplicates
 │
 ├── pipeline/               ← Core pipeline modules

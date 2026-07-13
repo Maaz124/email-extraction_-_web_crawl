@@ -4,11 +4,10 @@ set -eu
 mkdir -p /app/data /app/logs
 
 run_auto_pipeline_loop() {
-  interval="${AUTO_PIPELINE_CHECK_SECONDS:-3600}"
+  interval="${AUTO_PIPELINE_CHECK_SECONDS:-60}"
   echo "[entrypoint] auto_pipeline loop enabled; check interval: ${interval}s"
 
   while true; do
-    echo "[entrypoint] checking auto_pipeline.py"
     PYTHONIOENCODING=utf-8 python /app/auto_pipeline.py || true
     sleep "${interval}"
   done
