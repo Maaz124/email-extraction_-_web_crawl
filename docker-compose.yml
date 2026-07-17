@@ -26,7 +26,7 @@ services:
     deploy:
       resources:
         limits:
-          # Limit memory to 1GB to protect the 3.8GB host VPS from OOM crashes via Chrome
-          memory: 1G
+          # Give Chromium/Crawl4AI enough headroom while protecting the 3.8GB host VPS.
+          memory: 2G
         reservations:
           memory: 256M
