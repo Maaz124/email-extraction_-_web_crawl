@@ -33,6 +33,7 @@ from contact_source import get_contact_source_file
 # ── Paths & constants ─────────────────────────────────────────────────────────
 DATA_DIR        = PROJECT_ROOT / "data"
 EMAILED_LOG     = DATA_DIR / "emailed_log.csv"
+PROCESSED_LOG   = DATA_DIR / "processed_log.csv"
 RATE_LIMIT_FILE = DATA_DIR / "rate_limit.json"
 AUTOMATION_FILE = DATA_DIR / "automation_state.json"
 RUN_LOCK_FILE   = DATA_DIR / "outreach_run.lock"
@@ -157,9 +158,32 @@ def mark_domain_emailed(domain: str) -> None:
                     "emailed_at": eastern_now().strftime("%Y-%m-%d %H:%M:%S ET")})
 
 
+def load_processed_log() -> set[str]:
+    """Load domains with a permanent, non-send outcome."""
+    if not PROCESSED_LOG.exists():
+        return set()
+    with open(PROCESSED_LOG, encoding="utf-8") as f:
+        return {r["domain"] for r in csv.DictReader(f) if r.get("domain")}
+
+
+def mark_domain_processed(domain: str, status: str) -> None:
+    """Persist a terminal outcome so the same domain is not retried forever."""
+    file_exists = PROCESSED_LOG.exists()
+    with open(PROCESSED_LOG, "a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=["domain", "status", "processed_at"])
+        if not file_exists:
+            w.writeheader()
+        w.writerow({
+            "domain": domain,
+            "status": status,
+            "processed_at": eastern_now().strftime("%Y-%m-%d %H:%M:%S ET"),
+        })
+
+
 # ── Domain discovery ──────────────────────────────────────────────────────────
-def get_remaining_domains(emailed: set) -> list[str]:
+def get_remaining_domains(emailed: set, processed: set | None = None) -> list[str]:
     """Return unique domains from the selected contact file that haven't been emailed."""
+    processed = processed or set()
     extracted_file = get_contact_source_file()
     if not extracted_file.exists():
         logger.error(f"[AUTO] Contact file not found: {extracted_file}")
@@ -169,10 +193,12 @@ def get_remaining_domains(emailed: set) -> list[str]:
             domain for r in csv.DictReader(f)
             if (domain := _contact_domain(r))
         ))
-    remaining = [d for d in all_domains if d not in emailed]
+    completed = emailed | processed
+    remaining = [d for d in all_domains if d not in completed]
     logger.info(
         f"[AUTO] {len(all_domains)} total domains | "
         f"{len(emailed)} already emailed | "
+        f"{len(processed)} completed without sends | "
         f"{len(remaining)} remaining"
     )
     return remaining
@@ -249,8 +275,9 @@ def _run(force: bool = False) -> int:
         logger.info("=" * 60)
         return 0
 
-    emailed  = load_emailed_log()
-    domains  = get_remaining_domains(emailed)
+    emailed   = load_emailed_log()
+    processed = load_processed_log()
+    domains   = get_remaining_domains(emailed, processed)
     grand_sent = 0
 
     for domain in domains:
@@ -267,7 +294,8 @@ def _run(force: bool = False) -> int:
         # A) Extract contacts
         contacts = extract_contacts([domain], max_people=3)
         if not contacts:
-            logger.info(f"[AUTO] No contacts for {domain} — skipping")
+            mark_domain_processed(domain, "no_eligible_contacts")
+            logger.info(f"[AUTO] No eligible contacts for {domain} — marked processed")
             continue
 
         # B) Crawl website

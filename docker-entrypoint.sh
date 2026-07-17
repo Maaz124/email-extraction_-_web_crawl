@@ -8,7 +8,12 @@ run_auto_pipeline_loop() {
   echo "[entrypoint] auto_pipeline loop enabled; check interval: ${interval}s"
 
   while true; do
-    PYTHONIOENCODING=utf-8 python /app/auto_pipeline.py || true
+    if PYTHONIOENCODING=utf-8 python /app/auto_pipeline.py; then
+      :
+    else
+      status=$?
+      echo "[entrypoint] auto_pipeline exited with status ${status}; retrying in ${interval}s" >&2
+    fi
     sleep "${interval}"
   done
 }
